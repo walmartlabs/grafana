@@ -11,9 +11,6 @@ git fetch upstream
 git merge upstream/master
 git push
 ```
-
-I'll try to set this up so that it knows that this is a Grafana fork, that way we'll always know how far behind master we are.
-
 For now, I've created this branch `diff-support-unstable` that we can work on and PR into, although we'll likely need to squash/rebase/generally make the commit history look nice before making any PRs into Grafana core (for example, I'd need to remove the commit that makes this change to the README :P ).
 
 If you're working on the Go code, I'd suggest reading this article written by Scott Mansfield about configuring a remote and dealing with your $GOPATH: http://blog.sgmansfield.com/2016/06/working-with-forks-in-go/. Also if you have any difficulty setting it up, just ping @bentranter.
