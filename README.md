@@ -13,7 +13,20 @@ git push
 ```
 For now, I've created this branch `diff-support-unstable` that we can work on and PR into, although we'll likely need to squash/rebase/generally make the commit history look nice before making any PRs into Grafana core (for example, I'd need to remove the commit that makes this change to the README :P ).
 
-If you're working on the Go code, I'd suggest reading this article written by Scott Mansfield about configuring a remote and dealing with your $GOPATH: http://blog.sgmansfield.com/2016/06/working-with-forks-in-go/. Also if you have any difficulty setting it up, just ping @bentranter.
+If you're working on the Go code, I'd suggest reading this article written by Scott Mansfield about configuring a remote and dealing with your $GOPATH: http://blog.sgmansfield.com/2016/06/working-with-forks-in-go/. Also if you have any difficulty setting it up, just ping @ben.tranter.
+
+### Working with other backends
+
+Grafana makes it easy to use a different backend to store Grafana specific info (ie, Postgres instead of SQLite3). For example, to setup Postgres, just create the following environment variables:
+
+```sh
+# Grafana Overrides
+export GF_DATABASE_TYPE=postgres
+export GF_DATABASE_HOST="127.0.0.1:5432"
+export GF_DATABASE_USER=ben
+```
+
+To connect with those settings, make sure you've started Postgres on it's default port, created the user you wish to use to connect to Postgres (on a Mac, it should be the same as your login username), and created a database named `grafana` (you can also override this). When you start the server, Grafana will create the tables automatically for you, and will perform any necessary DB migrations.
 
 [Grafana](http://grafana.org) [![Circle CI](https://circleci.com/gh/grafana/grafana.svg?style=svg)](https://circleci.com/gh/grafana/grafana)
 ================
