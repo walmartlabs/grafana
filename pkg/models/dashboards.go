@@ -7,6 +7,9 @@ import (
 
 	"github.com/gosimple/slug"
 	"github.com/grafana/grafana/pkg/components/simplejson"
+
+	jsondiff "github.com/yudai/gojsondiff"
+	"github.com/yudai/gojsondiff/formatter"
 )
 
 // Typed errors
@@ -67,6 +70,35 @@ func NewDashboard(title string) *Dashboard {
 // GetTags turns the tags in data json into go string array
 func (dash *Dashboard) GetTags() []string {
 	return dash.Data.Get("tags").MustStringArray()
+}
+
+// Diff compares two simpleJson values as bytes, and returns the diff.
+func (dash *Dashboard) Diff(a *simplejson.Json, b *simplejson.Json) ([]byte, error) {
+	x, err := a.Encode()
+	if err != nil {
+		return nil, err
+	}
+	y, err := b.Encode()
+	if err != nil {
+		return nil, err
+	}
+
+	// From the raw bytes, run the JSON diff from the package
+	differ := jsondiff.New()
+	diff, err := differ.Compare(x, y)
+	if err != nil {
+		return nil, err
+	}
+
+	// If no change has been made, exit
+	if !diff.Modified() {
+		return nil, nil
+	}
+
+	// Otherwise returns the change
+	format := formatter.NewDeltaFormatter()
+	result, err := format.Format(diff)
+	return []byte(result), err
 }
 
 func NewDashboardFromJson(data *simplejson.Json) *Dashboard {
