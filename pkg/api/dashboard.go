@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/grafana/grafana/pkg/api/dtos"
@@ -253,6 +254,103 @@ func GetDashboardFromJsonFile(c *middleware.Context) {
 	dash.Meta.CanEdit = canEditDashboard(c.OrgRole)
 
 	c.JSON(200, &dash)
+}
+
+// GetDashboardVersions returns all dashboardversions as JSON
+func GetDashboardVersions(c *middleware.Context) {
+	slug := c.Params(":slug")
+	data := getAllMockData(slug)
+
+	c.JSON(200, data)
+}
+
+// GetDashboardVersion returns the dashboard version with the given ID.
+func GetDashboardVersion(c *middleware.Context) {
+	slug := c.Params(":slug")
+	idStr := c.Params(":id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JsonApiErr(404, "Incorrect type passed to id parameter, expected integer", err)
+		return
+	}
+
+	data := getMockData(slug, id)
+	c.JSON(200, data)
+}
+
+// CompareDashboardVersionByID compares dashboards the way the GitHub API does.
+func CompareDashboardVersionByID(c *middleware.Context) {
+	slug := c.Params(":slug")
+	versions := c.Params("versions")
+	versionStrings := strings.Split(versions, "...")
+	if len(versionStrings) != 2 {
+		c.JsonApiErr(400, "Bad format: URLs should be in the format /versions/0...1", nil)
+		return
+	}
+
+	original, err := strconv.Atoi(versionStrings[0])
+	if err != nil {
+		c.JsonApiErr(400, "Bad format: first argument is not of type integer", nil)
+		return
+	}
+
+	new, err := strconv.Atoi(versionStrings[1])
+	if err != nil {
+		c.JsonApiErr(400, "Bad format: second argument is not of type integer", nil)
+		return
+	}
+
+	cmd := &m.CompareDashboardVersionCommand{
+		Original: original,
+		New:      new,
+	}
+
+	// TODO(ben) Need to use bus.Dispatch()
+	delta, err := handleDiff(slug, cmd)
+	if err != nil {
+		c.JsonApiErr(400, "version-out-of-range", err)
+		return
+	}
+	c.JSON(200, simplejson.NewFromAny(util.DynMap{
+		"meta":  cmd,
+		"delta": delta,
+	}))
+}
+
+// CompareDashboardVersion compares two dashboard versions
+func CompareDashboardVersion(c *middleware.Context, cmd m.CompareDashboardVersionCommand) Response {
+	slug := c.Params(":slug")
+
+	// TODO(ben) Need to use bus.Dispatch()
+	delta, err := handleDiff(slug, &cmd)
+	if err != nil {
+		return Json(400, util.DynMap{
+			"message": err.Error(),
+			"status":  "version-out-of-range",
+		})
+	}
+	return Json(200, util.DynMap{
+		"meta":  cmd,
+		"delta": delta,
+	})
+}
+
+// RestoreDashboardVersion restores a dashboard to the given version.
+func RestoreDashboardVersion(c *middleware.Context, cmd m.RestoreDashboardVersionCommand) Response {
+
+	// Need version number?
+	return Json(200, util.DynMap{
+		"message": "Dashboard restored!",
+	})
+}
+
+// handleDiff is a stub for handling the diff, this should be listening on the
+// bus somehow...
+func handleDiff(slug string, versions *m.CompareDashboardVersionCommand) (*simplejson.Json, error) {
+	originalJSON := getMockData(slug, versions.Original)
+	newJSON := getMockData(slug, versions.New)
+
+	return diff(originalJSON, newJSON)
 }
 
 func GetDashboardTags(c *middleware.Context) {
