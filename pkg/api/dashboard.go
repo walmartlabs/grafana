@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"os"
 	"path"
+	"strconv"
 	"strings"
-	"time"
 
 	"github.com/grafana/grafana/pkg/api/dtos"
 	"github.com/grafana/grafana/pkg/bus"
@@ -256,206 +256,26 @@ func GetDashboardFromJsonFile(c *middleware.Context) {
 	c.JSON(200, &dash)
 }
 
-func getMockDiffData(slug string, id int) []*m.DashboardVersion {
-	jsonA, err := simplejson.NewJson([]byte(`{
-  "annotations": {
-    "list": [
-      
-    ]
-  },
-  "editable": true,
-  "gnetId": null,
-  "graphTooltip": 0,
-  "hideControls": false,
-  "id": 1,
-  "links": [
-    
-  ],
-  "rows": [
-    {
-      "collapse": false,
-      "height": "250px",
-      "panels": [
-        {
-          "aliasColors": {
-            
-          },
-          "bars": false,
-          "datasource": null,
-          "description": "TEST_PANEL_DESCRIPTION",
-          "fill": 1,
-          "id": 1,
-          "legend": {
-            "avg": false,
-            "current": false,
-            "max": false,
-            "min": false,
-            "show": true,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 1,
-          "links": [
-            
-          ],
-          "nullPointMode": "null",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [
-            
-          ],
-          "span": 12,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "refId": "A"
-            }
-          ],
-          "thresholds": [
-            
-          ],
-          "timeFrom": null,
-          "timeShift": null,
-          "title": "TEST_PANEL_UPDATE",
-          "tooltip": {
-            "shared": true,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "mode": "time",
-            "name": null,
-            "show": true,
-            "values": [
-              
-            ]
-          },
-          "yaxes": [
-            {
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
-            },
-            {
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
-            }
-          ]
-        }
-      ],
-      "repeat": null,
-      "repeatIteration": null,
-      "repeatRowId": null,
-      "showTitle": false,
-      "title": "Dashboard Row",
-      "titleSize": "h6"
-    }
-  ],
-  "schemaVersion": 14,
-  "style": "dark",
-  "tags": [
-    
-  ],
-  "templating": {
-    "list": [
-      
-    ]
-  },
-  "time": {
-    "from": "now-6h",
-    "to": "now"
-  },
-  "timepicker": {
-    "refresh_intervals": [
-      "5s",
-      "10s",
-      "30s",
-      "1m",
-      "5m",
-      "15m",
-      "30m",
-      "1h",
-      "2h",
-      "1d"
-    ],
-    "time_options": [
-      "5m",
-      "15m",
-      "1h",
-      "6h",
-      "12h",
-      "24h",
-      "2d",
-      "7d",
-      "30d"
-    ]
-  },
-  "timezone": "browser",
-  "title": "TEST_DASHBOARD",
-  "version": 1
-}
-`))
-	if err != nil {
-		panic(err)
-	}
-
-	// Add some more mock JSON data
-
-	data := []*m.DashboardVersion{
-		&m.DashboardVersionDTO{
-			Id:        1,
-			Slug:      slug,
-			Version:   0,
-			Created:   time.Now().Add(time.Hour * -1),
-			CreatedBy: 1,
-			Message:   "Created dashboard " + slug,
-			Data:      &simplejson.Json{},
-		},
-
-		&m.DashboardVersionDTO{
-			Id:        1,
-			Slug:      slug,
-			Version:   1,
-			Created:   time.Now().Add(time.Minute * -12),
-			CreatedBy: 1,
-			Message:   "Changed graph title",
-		},
-
-		&m.DashboardVersionDTO{
-			Id:        1,
-			Slug:      slug,
-			Version:   2,
-			Created:   time.Now().Add(time.Minute * -3),
-			CreatedBy: 1,
-			Message:   "Updated value for x axis",
-		},
-	}
-}
-
 // GetDashboardVersions returns all dashboardversions as JSON
 func GetDashboardVersions(c *middleware.Context) {
 	slug := c.Params(":slug")
+	data := getAllMockData(slug)
 
-	c.JSON(200, versions)
+	c.JSON(200, data)
 }
 
+// GetDashboardVersion returns the dashboard version with the given ID.
 func GetDashboardVersion(c *middleware.Context) {
 	slug := c.Params(":slug")
-	id := c.Params(":id")
+	idStr := c.Params(":id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JsonApiErr(404, "Incorrect type passed to id parameter, expected integer", err)
+		return
+	}
 
-	c.JSON(200, version)
+	data := getMockData(slug, id)
+	c.JSON(200, data)
 }
 
 func GetDashboardTags(c *middleware.Context) {

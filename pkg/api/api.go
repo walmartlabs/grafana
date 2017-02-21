@@ -223,9 +223,11 @@ func (hs *HttpServer) registerRoutes() {
 		// Dashboard
 		r.Group("/dashboards", func() {
 			r.Combo("/db/:slug").Get(GetDashboard).Delete(DeleteDashboard)
+
 			// Mock endpoints from spec
 			r.Get("/db/:slug/versions", GetDashboardVersions)
-			r.Get("/db/:slug/versions/:id", GetDashboardVersions)
+			r.Get("/db/:slug/versions/:id", GetDashboardVersion)
+
 			r.Post("/db", reqEditorRole, bind(m.SaveDashboardCommand{}), wrap(PostDashboard))
 			r.Get("/file/:file", GetDashboardFromJsonFile)
 			r.Get("/home", wrap(GetHomeDashboard))
