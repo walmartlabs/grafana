@@ -11,12 +11,12 @@ import (
 )
 
 // diff compares two simplejson values as bytes, and returns the diff.
-func diff(a *simplejson.Json, b *simplejson.Json) ([]byte, error) {
-	x, err := a.Encode()
+func diff(originalJSON *simplejson.Json, newJSON *simplejson.Json) (*simplejson.Json, error) {
+	x, err := originalJSON.Encode()
 	if err != nil {
 		return nil, err
 	}
-	y, err := b.Encode()
+	y, err := newJSON.Encode()
 	if err != nil {
 		return nil, err
 	}
@@ -29,14 +29,15 @@ func diff(a *simplejson.Json, b *simplejson.Json) ([]byte, error) {
 	}
 
 	// If no change has been made, exit
+	// TODO(ben) should error with appropriate message
 	if !diff.Modified() {
 		return nil, nil
 	}
 
 	// Otherwise returns the change
 	format := formatter.NewDeltaFormatter()
-	result, err := format.Format(diff)
-	return []byte(result), err
+	result, err := format.FormatAsJson(diff)
+	return simplejson.NewFromAny(result), err
 }
 
 // getMockData gets the mock data for the given slug and version.

@@ -35,8 +35,15 @@ type DashboardVersionDTO struct {
 // -----------------
 // COMMANDS
 
-// CreateDashboardVersionCommand creates a new dashboard version.
-type CreateDashboardVersionCommand struct {
+// RestoreDashboardVersionCommand creates a new dashboard version.
+type RestoreDashboardVersionCommand struct {
+	Version int `json:"version" Binding:"required"`
+}
+
+// CompareDashboardVersionCommand is used to compare two versions.
+type CompareDashboardVersionCommand struct {
+	Original int `json:"original" Binding:"required"`
+	New      int `json:"new" Binding:"required"`
 }
 
 // GetDashboardVersionsQuery accepts two dashboard versions, and returns the
