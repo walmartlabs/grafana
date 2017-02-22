@@ -1,0 +1,39 @@
+<div ng-controller="AuditLogCtrl">
+	<div class="tabbed-view-header">
+		<h2 class="tabbed-view-title">
+			Audit
+		</h2>
+
+		<ul class="gf-tabs">
+			<li class="gf-tabs-item" >
+				<a class="gf-tabs-link" ng-click="ctrl.mode = 'list';" ng-class="{active: ctrl.mode === 'list'}">
+					Log
+				</a>
+			</li>
+			<li class="gf-tabs-item" ng-show="ctrl.mode === 'compare'">
+				<span class="active gf-tabs-link">Compare</span>
+			</li>
+		</ul>
+
+		<button class="tabbed-view-close-btn" ng-click="dismiss();">
+			<i class="fa fa-remove"></i>
+		</button>
+	</div>
+
+	<div class="tabbed-view-body">
+		<div class="editor-row row" ng-if="ctrl.mode === 'list'">
+			<table class="grafana-options-table">
+			</table>
+		</div>
+
+		<div class="gf-form" ng-show="ctrl.mode === 'list'">
+			<div class="gf-form-button-row">
+				<a type="button" class="btn gf-form-button btn-success" ng-click="ctrl.mode = 'compare';"><i class="fa fa-copy" ></i>&nbsp;&nbsp;Compare</a>
+			</div>
+		</div>
+
+		<div class="audit-log" ng-if="ctrl.mode === 'compare'">
+		</div>
+
+	</div>
+</div>
