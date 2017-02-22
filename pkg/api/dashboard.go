@@ -259,23 +259,53 @@ func GetDashboardFromJsonFile(c *middleware.Context) {
 // GetDashboardVersions returns all dashboardversions as JSON
 func GetDashboardVersions(c *middleware.Context) {
 	slug := c.Params(":slug")
-	data := getAllMockData(slug)
+	query := m.GetDashboardVersionsCommand{
+		Slug: slug,
+	}
 
-	c.JSON(200, data)
+	if err := bus.Dispatch(&query); err != nil {
+		c.JsonApiErr(404, "No versions found for the slug "+slug, err)
+		return
+	}
+
+	// TODO(ben): decide if you want to return the results or just
+	// the DTO results. Right now we do only the DTO results
+	dashboardVersions := make([]*m.DashboardVersionDTO, len(query.Result))
+	for i, dashboardVersion := range query.Result {
+		dashboardVersions[i] = &m.DashboardVersionDTO{
+			Id:          dashboardVersion.Id,
+			DashboardId: dashboardVersion.DashboardId,
+			Slug:        dashboardVersion.Slug,
+			Version:     dashboardVersion.Version,
+			Created:     dashboardVersion.Created,
+			CreatedBy:   dashboardVersion.CreatedBy,
+			Message:     dashboardVersion.Message,
+		}
+	}
+
+	c.JSON(200, dashboardVersions) // TODO(ben): rename to results
 }
 
 // GetDashboardVersion returns the dashboard version with the given ID.
 func GetDashboardVersion(c *middleware.Context) {
 	slug := c.Params(":slug")
-	idStr := c.Params(":id")
-	id, err := strconv.Atoi(idStr)
+	versionStr := c.Params(":id") // TODO(ben): rename to "version"
+	version, err := strconv.Atoi(versionStr)
 	if err != nil {
-		c.JsonApiErr(404, "Incorrect type passed to id parameter, expected integer", err)
+		c.JsonApiErr(404, err.Error(), err)
 		return
 	}
 
-	data := getMockData(slug, id)
-	c.JSON(200, data)
+	query := m.GetDashboardVersionCommand{
+		Slug:    slug,
+		Version: version,
+	}
+	if err := bus.Dispatch(&query); err != nil {
+		c.JsonApiErr(500, err.Error(), err)
+		return
+	}
+
+	c.JSON(200, query.Result)
 }
 
 // CompareDashboardVersionByID compares dashboards the way the GitHub API does.
@@ -294,50 +324,60 @@ func CompareDashboardVersionByID(c *middleware.Context) {
 		return
 	}
 
-	new, err := strconv.Atoi(versionStrings[1])
+	newDashboard, err := strconv.Atoi(versionStrings[1])
 	if err != nil {
 		c.JsonApiErr(400, "Bad format: second argument is not of type integer", nil)
 		return
 	}
 
-	cmd := &m.CompareDashboardVersionCommand{
+	// Dispatch the message
+	cmd := m.CompareDashboardVersionsCommand{
+		Slug:     slug,
 		Original: original,
-		New:      new,
+		New:      newDashboard,
 	}
-
-	// TODO(ben) Need to use bus.Dispatch()
-	delta, err := handleDiff(slug, cmd)
-	if err != nil {
-		c.JsonApiErr(400, "version-out-of-range", err)
+	if err := bus.Dispatch(&cmd); err != nil {
+		c.JsonApiErr(500, "cannot-compute-diff", err)
 		return
 	}
+
 	c.JSON(200, simplejson.NewFromAny(util.DynMap{
-		"meta":  cmd,
-		"delta": delta,
+		"meta": util.DynMap{
+			"original": cmd.Original,
+			"new":      cmd.New,
+		},
+		"delta": cmd.Delta,
 	}))
 }
 
 // CompareDashboardVersion compares two dashboard versions
-func CompareDashboardVersion(c *middleware.Context, cmd m.CompareDashboardVersionCommand) Response {
+func CompareDashboardVersion(c *middleware.Context, cmd m.CompareDashboardVersionsCommand) Response {
 	slug := c.Params(":slug")
+	cmd.Slug = slug
 
-	// TODO(ben) Need to use bus.Dispatch()
-	delta, err := handleDiff(slug, &cmd)
-	if err != nil {
-		return Json(400, util.DynMap{
+	println("DEBUG COMMAND")
+	println(cmd.Slug)
+	println(cmd.Original)
+	println(cmd.New)
+
+	if err := bus.Dispatch(&cmd); err != nil {
+		return Json(500, util.DynMap{
 			"message": err.Error(),
-			"status":  "version-out-of-range",
+			"status":  "cannot-compute-diff",
 		})
 	}
-	return Json(200, util.DynMap{
-		"meta":  cmd,
-		"delta": delta,
-	})
+
+	return Json(200, simplejson.NewFromAny(util.DynMap{
+		"meta": util.DynMap{
+			"original": cmd.Original,
+			"new":      cmd.New,
+		},
+		"delta": cmd.Delta,
+	}))
 }
 
 // RestoreDashboardVersion restores a dashboard to the given version.
 func RestoreDashboardVersion(c *middleware.Context, cmd m.RestoreDashboardVersionCommand) Response {
-
 	// Need version number?
 	return Json(200, util.DynMap{
 		"message": "Dashboard restored!",
@@ -346,7 +386,7 @@ func RestoreDashboardVersion(c *middleware.Context, cmd m.RestoreDashboardVersio
 
 // handleDiff is a stub for handling the diff, this should be listening on the
 // bus somehow...
-func handleDiff(slug string, versions *m.CompareDashboardVersionCommand) (*simplejson.Json, error) {
+func handleDiff(slug string, versions *m.CompareDashboardVersionsCommand) (*simplejson.Json, error) {
 	originalJSON := getMockData(slug, versions.Original)
 	newJSON := getMockData(slug, versions.New)
 
