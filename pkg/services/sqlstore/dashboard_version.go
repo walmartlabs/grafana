@@ -1,6 +1,7 @@
 package sqlstore
 
 import (
+	"github.com/go-xorm/xorm"
 	"github.com/grafana/grafana/pkg/bus"
 	"github.com/grafana/grafana/pkg/components/simplejson"
 	m "github.com/grafana/grafana/pkg/models"
@@ -12,9 +13,10 @@ func init() {
 	bus.AddHandler("sql", CompareDashboardVersionsCommand)
 	bus.AddHandler("sql", GetDashboardVersion)
 	bus.AddHandler("sql", GetDashboardVersions)
+	bus.AddHandler("sql", RestoreDashboardVersion)
 
-	// bus.AddHandler("sql", RestoreDashboardVersion)
 	// bus.AddHandler("sql", RestoreDeletedDashboard)
+	// bus.AddHandler("sql", Blame)
 }
 
 // CompareDashboardVersionsCommand computes the JSON diff of two versions,
@@ -57,11 +59,45 @@ func GetDashboardVersions(query *m.GetDashboardVersionsCommand) error {
 	return x.In("slug", query.Slug).Find(&query.Result) // TODO(ben): create error for slug not found
 }
 
-// func RestoreDashboardVersion(cmd *m.) error {
+// Restore dashboard version restores the dashboard data to the given version.
+func RestoreDashboardVersion(cmd *m.RestoreDashboardVersionCommand) error {
+	return inTransaction(func(sess *xorm.Session) error {
+		// Check if dashboard version exists in dashboard_version table
+		dashboardVersion, err := getDashboardVersion(cmd.Slug, cmd.Version)
+		if err != nil {
+			return err
+		}
+
+		// This is terrible, finding the dashboard version by the slug is a
+		// disaster waiting to happen since slugs aren't guaranteed to be unique
+		dashboard, err := dangerouslyGetDashboardDoNotUseInProductionYouWillLoseData(cmd.Slug)
+		if err != nil {
+			return err
+		}
+
+		// Update dasboard model
+		//
+		// TODO(ben): update the title as well
+		dashboard.Version = dashboardVersion.Version
+		dashboard.Data = dashboardVersion.Data
+
+		rows, err := sess.Id(dashboard.Id).Update(dashboard)
+		if err != nil {
+			return err
+		}
+		if rows == 0 {
+			return m.ErrDashboardNotFound
+		}
+
+		return nil
+	})
+}
+
+// func RestoreDeletedDashboard(cmd *m.) error {
 
 // }
 
-// func RestoreDeletedDashboard(cmd *m.) error {
+// func Blame(cmd *m.) error {
 
 // }
 
@@ -79,6 +115,19 @@ func getDashboardVersion(slug string, version int) (*m.DashboardVersion, error) 
 		return nil, m.ErrDashboardVersionNotFound
 	}
 	return dashboardVersions[0], nil
+}
+
+// pretty good function
+func dangerouslyGetDashboardDoNotUseInProductionYouWillLoseData(slug string) (*m.Dashboard, error) {
+	dashboards := make([]*m.Dashboard, 0)
+	err := x.Where("slug=?", slug).Find(&dashboards)
+	if err != nil {
+		return nil, err
+	}
+	if len(dashboards) < 1 {
+		return nil, m.ErrDashboardNotFound
+	}
+	return dashboards[0], nil
 }
 
 // diff calculates the diff of two JSON objects

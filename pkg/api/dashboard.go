@@ -283,7 +283,7 @@ func GetDashboardVersions(c *middleware.Context) {
 		}
 	}
 
-	c.JSON(200, dashboardVersions) // TODO(ben): rename to results
+	c.JSON(200, dashboardVersions)
 }
 
 // GetDashboardVersion returns the dashboard version with the given ID.
@@ -355,11 +355,6 @@ func CompareDashboardVersion(c *middleware.Context, cmd m.CompareDashboardVersio
 	slug := c.Params(":slug")
 	cmd.Slug = slug
 
-	println("DEBUG COMMAND")
-	println(cmd.Slug)
-	println(cmd.Original)
-	println(cmd.New)
-
 	if err := bus.Dispatch(&cmd); err != nil {
 		return Json(500, util.DynMap{
 			"message": err.Error(),
@@ -378,19 +373,20 @@ func CompareDashboardVersion(c *middleware.Context, cmd m.CompareDashboardVersio
 
 // RestoreDashboardVersion restores a dashboard to the given version.
 func RestoreDashboardVersion(c *middleware.Context, cmd m.RestoreDashboardVersionCommand) Response {
-	// Need version number?
+	slug := c.Params(":slug")
+	cmd.Slug = slug
+
+	if err := bus.Dispatch(&cmd); err != nil {
+		return Json(500, util.DynMap{
+			"message": err.Error(),
+			"status":  "cannot-restore-version",
+		})
+	}
+
 	return Json(200, util.DynMap{
 		"message": "Dashboard restored!",
+		"version": cmd.Version,
 	})
-}
-
-// handleDiff is a stub for handling the diff, this should be listening on the
-// bus somehow...
-func handleDiff(slug string, versions *m.CompareDashboardVersionsCommand) (*simplejson.Json, error) {
-	originalJSON := getMockData(slug, versions.Original)
-	newJSON := getMockData(slug, versions.New)
-
-	return diff(originalJSON, newJSON)
 }
 
 func GetDashboardTags(c *middleware.Context) {

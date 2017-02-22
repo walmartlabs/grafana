@@ -48,8 +48,8 @@ type DashboardVersionDTO struct {
 // the given Version.
 type GetDashboardVersionCommand struct {
 	// DashboardId int64 `json:"dashboardId" Binding:"required"`
-	Slug    string `json:"slug" Binding:"required"`
-	Version int    `json:"version" Binding:"required"`
+	Slug    string `json:"slug" binding:"Required"`
+	Version int    `json:"version" binding:"Required"`
 
 	Result *DashboardVersion
 }
@@ -58,7 +58,7 @@ type GetDashboardVersionCommand struct {
 // sqlstore.GetDashboardVersionsCommand, which returns all
 type GetDashboardVersionsCommand struct {
 	// DashboardId int64 `json:"dashboardId" Binding:"required"`
-	Slug string `json:"slug" Binding:"required"`
+	Slug string `json:"slug" binding:"Required"`
 
 	Result []*DashboardVersion
 }
@@ -66,30 +66,17 @@ type GetDashboardVersionsCommand struct {
 // RestoreDashboardVersionCommand creates a new dashboard version.
 type RestoreDashboardVersionCommand struct {
 	// DashboardId int64 `json:"dashboardId" Binding:"required"`
-	Slug    string `json:"slug" Binding:"required"`
-	Version int    `json:"version" Binding:"required"`
+	Slug    string `json:"slug"`
+	Version int    `json:"version" binding:"Required"`
 
 	Result *DashboardVersion
 }
 
 // CompareDashboardVersionsCommand is used to compare two versions.
 type CompareDashboardVersionsCommand struct {
-	Slug     string `json:"slug" Binding:"required"`
-	Original int    `json:"original" Binding:"required"`
-	New      int    `json:"new" Binding:"required"`
+	Slug     string `json:"slug"`
+	Original int    `json:"original" binding:"Required"`
+	New      int    `json:"new" binding:"Required"`
 
 	Delta map[string]interface{} `json:"delta"`
-}
-
-// Diff computes a JSON diff.
-//
-// TODO(ben) this is an okay idea but idk if it's really correct
-// Probably better to computer the diff in the services package
-func (c *CompareDashboardVersionsCommand) Diff(originalJSON,
-	newJSON []byte) error {
-
-	c.Delta = map[string]interface{}{
-		"Diff": "Goes here",
-	}
-	return nil
 }
