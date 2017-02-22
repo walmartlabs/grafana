@@ -228,7 +228,7 @@ func (hs *HttpServer) registerRoutes() {
 			r.Get("/db/:slug/versions", GetDashboardVersions)
 			r.Get("/db/:slug/versions/:id", GetDashboardVersion)
 			r.Post("/db/:slug/restore", reqEditorRole, bind(m.RestoreDashboardVersionCommand{}), wrap(RestoreDashboardVersion))
-			r.Post("/db/:slug/compare", reqEditorRole, bind(m.CompareDashboardVersionCommand{}), wrap(CompareDashboardVersion))
+			r.Post("/db/:slug/compare", reqEditorRole, bind(m.CompareDashboardVersionsCommand{}), wrap(CompareDashboardVersion))
 			r.Get("/db/:slug/compare/:versions", CompareDashboardVersionByID)
 
 			r.Post("/db", reqEditorRole, bind(m.SaveDashboardCommand{}), wrap(PostDashboard))

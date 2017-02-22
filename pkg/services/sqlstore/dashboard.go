@@ -3,6 +3,7 @@ package sqlstore
 import (
 	"bytes"
 	"fmt"
+	"time"
 
 	"github.com/go-xorm/xorm"
 	"github.com/grafana/grafana/pkg/bus"
@@ -71,6 +72,7 @@ func SaveDashboard(cmd *m.SaveDashboardCommand) error {
 
 		affectedRows := int64(0)
 
+		// This is where to add the new data
 		if dash.Id == 0 {
 			metrics.M_Models_Dashboard_Insert.Inc(1)
 			affectedRows, err = sess.Insert(dash)
@@ -80,6 +82,31 @@ func SaveDashboard(cmd *m.SaveDashboardCommand) error {
 			affectedRows, err = sess.Id(dash.Id).Update(dash)
 		}
 
+		if affectedRows == 0 {
+			return m.ErrDashboardNotFound
+		}
+
+		// update the dashboard version table
+		//
+		// TODO(ben): if there isn't any history for the table, save the
+		// previous version before saving the current one - that way people who
+		// have just adopted this feature can benefit as soon as they upgrade
+		//
+		// TODO(ben): if nothing has changed, don't:
+		//   - update the version number
+		//   - save a new version
+		//
+		// TODO(ben): deal with updating the message
+		dashVersion := &m.DashboardVersion{
+			Slug:        dash.Slug,
+			DashboardId: dash.Id,
+			Version:     dash.Version,
+			Created:     time.Now(),
+			CreatedBy:   dash.CreatedBy,
+			Message:     "",
+			Data:        dash.Data,
+		}
+		affectedRows, err = sess.Insert(dashVersion)
 		if affectedRows == 0 {
 			return m.ErrDashboardNotFound
 		}
