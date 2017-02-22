@@ -2,6 +2,7 @@ define([
   './panellinks/module',
   './dashlinks/module',
   './annotations/annotations_srv',
+  './audit/audit_srv',
   './templating/all',
   './dashboard/all',
   './playlist/all',
