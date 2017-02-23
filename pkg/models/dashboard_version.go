@@ -9,6 +9,7 @@ import (
 
 var (
 	ErrDashboardVersionNotFound = errors.New("Dashboard version not found")
+	ErrNoVersionsForSlug        = errors.New("No dashboard versions found for the given slug")
 )
 
 // A DashboardVersion represents the comparable data in a dashboard, allowing
@@ -47,7 +48,6 @@ type DashboardVersionDTO struct {
 // sqlstore.GetDashboardVersionCommand, which returns the DashboardVersion for
 // the given Version.
 type GetDashboardVersionCommand struct {
-	// DashboardId int64 `json:"dashboardId" Binding:"required"`
 	Slug    string `json:"slug" binding:"Required"`
 	Version int    `json:"version" binding:"Required"`
 
@@ -57,7 +57,6 @@ type GetDashboardVersionCommand struct {
 // GetDashboardVersionsCommand contains the data required to execute the
 // sqlstore.GetDashboardVersionsCommand, which returns all
 type GetDashboardVersionsCommand struct {
-	// DashboardId int64 `json:"dashboardId" Binding:"required"`
 	Slug string `json:"slug" binding:"Required"`
 
 	Result []*DashboardVersion
@@ -65,7 +64,6 @@ type GetDashboardVersionsCommand struct {
 
 // RestoreDashboardVersionCommand creates a new dashboard version.
 type RestoreDashboardVersionCommand struct {
-	// DashboardId int64 `json:"dashboardId" Binding:"required"`
 	Slug    string `json:"slug"`
 	Version int    `json:"version" binding:"Required"`
 
