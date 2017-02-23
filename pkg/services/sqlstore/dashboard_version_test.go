@@ -26,17 +26,17 @@ func TestGetDashboardVersion(t *testing.T) {
 	Convey("Testing dashboard version retrieval", t, func() {
 		InitTestDB(t)
 
-		Convey("Get a version slug and version ID", func() {
+		Convey("Get a Dashboard ID and version ID", func() {
 			savedDash := insertTestDashboard("test dash 26", 1, "diff")
 
 			cmd := m.GetDashboardVersionCommand{
-				Slug:    savedDash.Slug,
-				Version: savedDash.Version,
+				DashboardId: savedDash.Id,
+				Version:     savedDash.Version,
 			}
 
 			err := GetDashboardVersion(&cmd)
 			So(err, ShouldBeNil)
-			So(savedDash.Slug, ShouldEqual, cmd.Slug)
+			So(savedDash.Id, ShouldEqual, cmd.DashboardId)
 			So(savedDash.Version, ShouldEqual, cmd.Version)
 
 			// This won't pass until we add referential integrity -- the result
@@ -50,8 +50,8 @@ func TestGetDashboardVersion(t *testing.T) {
 
 		Convey("Attempt to get a version that doesn't exist", func() {
 			cmd := m.GetDashboardVersionCommand{
-				Slug:    "not-existent-slug",
-				Version: 123,
+				DashboardId: int64(999),
+				Version:     123,
 			}
 
 			err := GetDashboardVersion(&cmd)
@@ -66,26 +66,24 @@ func TestGetDashboardVersions(t *testing.T) {
 		InitTestDB(t)
 		savedDash := insertTestDashboard("test dash 43", 1, "diff-all")
 
-		Convey("Get all versions for a given slug", func() {
+		Convey("Get all versions for a given Dashboard ID", func() {
 			cmd := m.GetDashboardVersionsCommand{
-				Slug: savedDash.Slug,
+				DashboardId: savedDash.Id,
 			}
 
 			err := GetDashboardVersions(&cmd)
 			So(err, ShouldBeNil)
-
-			// idk how this actually works
 			So(len(cmd.Result), ShouldEqual, 1)
 		})
 
-		Convey("Attempt to get the versions for a non-existent slug", func() {
+		Convey("Attempt to get the versions for a non-existent Dashboard ID", func() {
 			cmd := m.GetDashboardVersionsCommand{
-				Slug: "non-existent-slug",
+				DashboardId: int64(999),
 			}
 
 			err := GetDashboardVersions(&cmd)
 			So(err, ShouldNotBeNil)
-			So(err, ShouldEqual, m.ErrNoVersionsForSlug)
+			So(err, ShouldEqual, m.ErrNoVersionsForDashboardId)
 			So(len(cmd.Result), ShouldEqual, 0)
 		})
 
@@ -96,7 +94,7 @@ func TestGetDashboardVersions(t *testing.T) {
 			})
 
 			cmd := m.GetDashboardVersionsCommand{
-				Slug: savedDash.Slug,
+				DashboardId: savedDash.Id,
 			}
 			err := GetDashboardVersions(&cmd)
 			So(err, ShouldBeNil)
@@ -115,9 +113,9 @@ func TestCompareDashboardVersions(t *testing.T) {
 
 		Convey("Compare two versions that are different", func() {
 			cmd := m.CompareDashboardVersionsCommand{
-				Slug:     savedDash.Slug,
-				Original: savedDash.Version,
-				New:      savedDash.Version + 1,
+				DashboardId: savedDash.Id,
+				Original:    savedDash.Version,
+				New:         savedDash.Version + 1,
 			}
 
 			err := CompareDashboardVersionsCommand(&cmd)
@@ -127,9 +125,9 @@ func TestCompareDashboardVersions(t *testing.T) {
 
 		Convey("Compare two versions that are the same", func() {
 			cmd := m.CompareDashboardVersionsCommand{
-				Slug:     savedDash.Slug,
-				Original: savedDash.Version,
-				New:      savedDash.Version,
+				DashboardId: savedDash.Id,
+				Original:    savedDash.Version,
+				New:         savedDash.Version,
 			}
 
 			err := CompareDashboardVersionsCommand(&cmd)
@@ -151,14 +149,14 @@ func TestRestoreDashboardVersion(t *testing.T) {
 
 		Convey("Restore dashboard to a previous version", func() {
 			versionsCmd := m.GetDashboardVersionsCommand{
-				Slug: savedDash.Slug,
+				DashboardId: savedDash.Id,
 			}
 			err := GetDashboardVersions(&versionsCmd)
 			So(err, ShouldBeNil)
 
 			cmd := m.RestoreDashboardVersionCommand{
-				Slug:    savedDash.Slug,
-				Version: savedDash.Version,
+				DashboardId: savedDash.Id,
+				Version:     savedDash.Version,
 			}
 
 			err = RestoreDashboardVersion(&cmd)

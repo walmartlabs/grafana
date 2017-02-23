@@ -9,7 +9,7 @@ import (
 
 var (
 	ErrDashboardVersionNotFound = errors.New("Dashboard version not found")
-	ErrNoVersionsForSlug        = errors.New("No dashboard versions found for the given slug")
+	ErrNoVersionsForDashboardId = errors.New("No dashboard versions found for the given DashboardId")
 )
 
 // A DashboardVersion represents the comparable data in a dashboard, allowing
@@ -48,8 +48,8 @@ type DashboardVersionDTO struct {
 // sqlstore.GetDashboardVersionCommand, which returns the DashboardVersion for
 // the given Version.
 type GetDashboardVersionCommand struct {
-	Slug    string `json:"slug" binding:"Required"`
-	Version int    `json:"version" binding:"Required"`
+	DashboardId int64 `json:"dashboardId" binding:"Required"`
+	Version     int   `json:"version" binding:"Required"`
 
 	Result *DashboardVersion
 }
@@ -57,24 +57,24 @@ type GetDashboardVersionCommand struct {
 // GetDashboardVersionsCommand contains the data required to execute the
 // sqlstore.GetDashboardVersionsCommand, which returns all
 type GetDashboardVersionsCommand struct {
-	Slug string `json:"slug" binding:"Required"`
+	DashboardId int64 `json:"dashboardId" binding:"Required"`
 
 	Result []*DashboardVersion
 }
 
 // RestoreDashboardVersionCommand creates a new dashboard version.
 type RestoreDashboardVersionCommand struct {
-	Slug    string `json:"slug"`
-	Version int    `json:"version" binding:"Required"`
+	DashboardId int64 `json:"dashboardId"`
+	Version     int   `json:"version" binding:"Required"`
 
 	Result *DashboardVersion
 }
 
 // CompareDashboardVersionsCommand is used to compare two versions.
 type CompareDashboardVersionsCommand struct {
-	Slug     string `json:"slug"`
-	Original int    `json:"original" binding:"Required"`
-	New      int    `json:"new" binding:"Required"`
+	DashboardId int64 `json:"dashboardId"`
+	Original    int   `json:"original" binding:"Required"`
+	New         int   `json:"new" binding:"Required"`
 
 	Delta map[string]interface{} `json:"delta"`
 }
