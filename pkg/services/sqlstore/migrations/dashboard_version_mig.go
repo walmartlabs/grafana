@@ -19,3 +19,6 @@ func addDashboardVersionMigration(mg *Migrator) {
 
 	mg.AddMigration("create dashboard_version table v1", NewAddTableMigration(dashboardVersionV1))
 }
+
+// TODO(ben): this migration should also migrate any existing data from the
+// dashboard table to the dashboard version table

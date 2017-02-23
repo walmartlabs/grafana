@@ -102,7 +102,7 @@ func SaveDashboard(cmd *m.SaveDashboardCommand) error {
 			DashboardId: dash.Id,
 			Version:     dash.Version,
 			Created:     time.Now(),
-			CreatedBy:   dash.CreatedBy,
+			CreatedBy:   dash.UpdatedBy,
 			Message:     "",
 			Data:        dash.Data,
 		}
