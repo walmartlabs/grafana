@@ -56,10 +56,18 @@ func GetDashboardVersion(query *m.GetDashboardVersionCommand) error {
 
 // GetDashboardVersions gets all dashboard versions for the given slug.
 func GetDashboardVersions(query *m.GetDashboardVersionsCommand) error {
-	return x.In("slug", query.Slug).Find(&query.Result) // TODO(ben): create error for slug not found
+	err := x.In("slug", query.Slug).Find(&query.Result)
+	if err != nil {
+		return err
+	}
+
+	if len(query.Result) < 1 {
+		return m.ErrNoVersionsForSlug
+	}
+	return nil
 }
 
-// Restore dashboard version restores the dashboard data to the given version.
+// RestoreDashboardVersion restores the dashboard data to the given version.
 func RestoreDashboardVersion(cmd *m.RestoreDashboardVersionCommand) error {
 	return inTransaction(func(sess *xorm.Session) error {
 		// Check if dashboard version exists in dashboard_version table
@@ -77,7 +85,9 @@ func RestoreDashboardVersion(cmd *m.RestoreDashboardVersionCommand) error {
 
 		// Update dasboard model
 		//
-		// TODO(ben): update the title as well
+		// TODO(ben): update the title as well... but I'm not sure what to do
+		// now because the title becomes the slug and it's unique in combination
+		// with the OrgID
 		dashboard.Version = dashboardVersion.Version
 		dashboard.Data = dashboardVersion.Data
 
