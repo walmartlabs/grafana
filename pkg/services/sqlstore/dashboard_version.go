@@ -23,12 +23,12 @@ func init() {
 // assigning the delta of the diff to the `Delta` field.
 func CompareDashboardVersionsCommand(cmd *m.CompareDashboardVersionsCommand) error {
 	// Find original version
-	original, err := getDashboardVersion(cmd.Slug, cmd.Original)
+	original, err := getDashboardVersion(cmd.DashboardId, cmd.Original)
 	if err != nil {
 		return err
 	}
 
-	newDashboard, err := getDashboardVersion(cmd.Slug, cmd.New)
+	newDashboard, err := getDashboardVersion(cmd.DashboardId, cmd.New)
 	if err != nil {
 		return err
 	}
@@ -45,7 +45,7 @@ func CompareDashboardVersionsCommand(cmd *m.CompareDashboardVersionsCommand) err
 // GetDashboardVersion gets the dashboard version for the given dashboard ID
 // and version number.
 func GetDashboardVersion(query *m.GetDashboardVersionCommand) error {
-	result, err := getDashboardVersion(query.Slug, query.Version)
+	result, err := getDashboardVersion(query.DashboardId, query.Version)
 	if err != nil {
 		return err
 	}
@@ -54,15 +54,15 @@ func GetDashboardVersion(query *m.GetDashboardVersionCommand) error {
 	return nil
 }
 
-// GetDashboardVersions gets all dashboard versions for the given slug.
+// GetDashboardVersions gets all dashboard versions for the given dashboard ID.
 func GetDashboardVersions(query *m.GetDashboardVersionsCommand) error {
-	err := x.In("slug", query.Slug).Find(&query.Result)
+	err := x.In("dashboard_id", query.DashboardId).Find(&query.Result)
 	if err != nil {
 		return err
 	}
 
 	if len(query.Result) < 1 {
-		return m.ErrNoVersionsForSlug
+		return m.ErrNoVersionsForDashboardId
 	}
 	return nil
 }
@@ -71,23 +71,17 @@ func GetDashboardVersions(query *m.GetDashboardVersionsCommand) error {
 func RestoreDashboardVersion(cmd *m.RestoreDashboardVersionCommand) error {
 	return inTransaction(func(sess *xorm.Session) error {
 		// Check if dashboard version exists in dashboard_version table
-		dashboardVersion, err := getDashboardVersion(cmd.Slug, cmd.Version)
+		dashboardVersion, err := getDashboardVersion(cmd.DashboardId, cmd.Version)
 		if err != nil {
 			return err
 		}
 
-		// This is terrible, finding the dashboard version by the slug is a
-		// disaster waiting to happen since slugs aren't guaranteed to be unique
-		dashboard, err := dangerouslyGetDashboardDoNotUseInProductionYouWillLoseData(cmd.Slug)
+		dashboard, err := getDashboard(cmd.DashboardId)
 		if err != nil {
 			return err
 		}
 
 		// Update dasboard model
-		//
-		// TODO(ben): update the title as well... but I'm not sure what to do
-		// now because the title becomes the slug and it's unique in combination
-		// with the OrgID
 		dashboard.Version = dashboardVersion.Version
 		dashboard.Data = dashboardVersion.Data
 
@@ -112,12 +106,10 @@ func RestoreDashboardVersion(cmd *m.RestoreDashboardVersionCommand) error {
 // }
 
 // getDashboardVersion is a helper function that gets the dashboard version for
-// the given slug and version ID.
-//
-// TODO(ben): this needs to use a unique ID instead of a slug
-func getDashboardVersion(slug string, version int) (*m.DashboardVersion, error) {
+// the given dashboard ID and version ID.
+func getDashboardVersion(dashboardId int64, version int) (*m.DashboardVersion, error) {
 	dashboardVersions := make([]*m.DashboardVersion, 0)
-	err := x.Where("slug=? AND version=?", slug, version).Find(&dashboardVersions)
+	err := x.Where("dashboard_id=? AND version=?", dashboardId, version).Find(&dashboardVersions)
 	if err != nil {
 		return nil, err
 	}
@@ -127,17 +119,18 @@ func getDashboardVersion(slug string, version int) (*m.DashboardVersion, error) 
 	return dashboardVersions[0], nil
 }
 
-// pretty good function
-func dangerouslyGetDashboardDoNotUseInProductionYouWillLoseData(slug string) (*m.Dashboard, error) {
-	dashboards := make([]*m.Dashboard, 0)
-	err := x.Where("slug=?", slug).Find(&dashboards)
+// getDashboard gets a dashboard by ID. Used for retrieving the dashboard
+// associated with dashboard versions.
+func getDashboard(dashboardId int64) (*m.Dashboard, error) {
+	dashboard := m.Dashboard{Id: dashboardId}
+	has, err := x.Get(&dashboard)
 	if err != nil {
 		return nil, err
 	}
-	if len(dashboards) < 1 {
+	if has == false {
 		return nil, m.ErrDashboardNotFound
 	}
-	return dashboards[0], nil
+	return &dashboard, nil
 }
 
 // diff calculates the diff of two JSON objects

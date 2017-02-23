@@ -225,11 +225,11 @@ func (hs *HttpServer) registerRoutes() {
 			r.Combo("/db/:slug").Get(GetDashboard).Delete(DeleteDashboard)
 
 			// Mock endpoints from spec
-			r.Get("/db/:slug/versions", GetDashboardVersions)
-			r.Get("/db/:slug/versions/:id", GetDashboardVersion)
-			r.Post("/db/:slug/restore", reqEditorRole, bind(m.RestoreDashboardVersionCommand{}), wrap(RestoreDashboardVersion))
-			r.Post("/db/:slug/compare", reqEditorRole, bind(m.CompareDashboardVersionsCommand{}), wrap(CompareDashboardVersion))
-			r.Get("/db/:slug/compare/:versions", CompareDashboardVersionByID)
+			r.Get("/db/:dashboardId/versions", GetDashboardVersions)
+			r.Get("/db/:dashboardId/versions/:id", GetDashboardVersion)
+			r.Post("/db/:dashboardId/restore", reqEditorRole, bind(m.RestoreDashboardVersionCommand{}), wrap(RestoreDashboardVersion))
+			r.Post("/db/:dashboardId/compare", reqEditorRole, bind(m.CompareDashboardVersionsCommand{}), wrap(CompareDashboardVersion))
+			r.Get("/db/:dashboardId/compare/:versions", CompareDashboardVersionByID)
 
 			r.Post("/db", reqEditorRole, bind(m.SaveDashboardCommand{}), wrap(PostDashboard))
 			r.Get("/file/:file", GetDashboardFromJsonFile)

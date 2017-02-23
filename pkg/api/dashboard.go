@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path"
 	"strconv"
@@ -258,13 +259,19 @@ func GetDashboardFromJsonFile(c *middleware.Context) {
 
 // GetDashboardVersions returns all dashboardversions as JSON
 func GetDashboardVersions(c *middleware.Context) {
-	slug := c.Params(":slug")
+	dashboardIdStr := c.Params(":dashboardId")
+	dashboardId, err := strconv.Atoi(dashboardIdStr)
+	if err != nil {
+		c.JsonApiErr(400, err.Error(), err)
+		return
+	}
+
 	query := m.GetDashboardVersionsCommand{
-		Slug: slug,
+		DashboardId: int64(dashboardId),
 	}
 
 	if err := bus.Dispatch(&query); err != nil {
-		c.JsonApiErr(404, "No versions found for the slug "+slug, err)
+		c.JsonApiErr(404, fmt.Sprintf("No versions found for dashboardId %d", dashboardId), err)
 		return
 	}
 
@@ -288,17 +295,23 @@ func GetDashboardVersions(c *middleware.Context) {
 
 // GetDashboardVersion returns the dashboard version with the given ID.
 func GetDashboardVersion(c *middleware.Context) {
-	slug := c.Params(":slug")
-	versionStr := c.Params(":id") // TODO(ben): rename to "version"
+	dashboardIdStr := c.Params(":dashboardId")
+	dashboardId, err := strconv.Atoi(dashboardIdStr)
+	if err != nil {
+		c.JsonApiErr(400, err.Error(), err)
+		return
+	}
+
+	versionStr := c.Params(":id")
 	version, err := strconv.Atoi(versionStr)
 	if err != nil {
-		c.JsonApiErr(404, err.Error(), err)
+		c.JsonApiErr(400, err.Error(), err)
 		return
 	}
 
 	query := m.GetDashboardVersionCommand{
-		Slug:    slug,
-		Version: version,
+		DashboardId: int64(dashboardId),
+		Version:     version,
 	}
 	if err := bus.Dispatch(&query); err != nil {
 		c.JsonApiErr(500, err.Error(), err)
@@ -310,7 +323,13 @@ func GetDashboardVersion(c *middleware.Context) {
 
 // CompareDashboardVersionByID compares dashboards the way the GitHub API does.
 func CompareDashboardVersionByID(c *middleware.Context) {
-	slug := c.Params(":slug")
+	dashboardIdStr := c.Params(":dashboardId")
+	dashboardId, err := strconv.Atoi(dashboardIdStr)
+	if err != nil {
+		c.JsonApiErr(400, err.Error(), err)
+		return
+	}
+
 	versions := c.Params("versions")
 	versionStrings := strings.Split(versions, "...")
 	if len(versionStrings) != 2 {
@@ -332,9 +351,9 @@ func CompareDashboardVersionByID(c *middleware.Context) {
 
 	// Dispatch the message
 	cmd := m.CompareDashboardVersionsCommand{
-		Slug:     slug,
-		Original: original,
-		New:      newDashboard,
+		DashboardId: int64(dashboardId),
+		Original:    original,
+		New:         newDashboard,
 	}
 	if err := bus.Dispatch(&cmd); err != nil {
 		c.JsonApiErr(500, "cannot-compute-diff", err)
@@ -352,8 +371,15 @@ func CompareDashboardVersionByID(c *middleware.Context) {
 
 // CompareDashboardVersion compares two dashboard versions
 func CompareDashboardVersion(c *middleware.Context, cmd m.CompareDashboardVersionsCommand) Response {
-	slug := c.Params(":slug")
-	cmd.Slug = slug
+	dashboardIdStr := c.Params(":dashboardId")
+	dashboardId, err := strconv.Atoi(dashboardIdStr)
+	if err != nil {
+		return Json(404, util.DynMap{
+			"message": err.Error(),
+			"status":  "cannot-find-dashboard",
+		})
+	}
+	cmd.DashboardId = int64(dashboardId)
 
 	if err := bus.Dispatch(&cmd); err != nil {
 		return Json(500, util.DynMap{
@@ -373,8 +399,15 @@ func CompareDashboardVersion(c *middleware.Context, cmd m.CompareDashboardVersio
 
 // RestoreDashboardVersion restores a dashboard to the given version.
 func RestoreDashboardVersion(c *middleware.Context, cmd m.RestoreDashboardVersionCommand) Response {
-	slug := c.Params(":slug")
-	cmd.Slug = slug
+	dashboardIdStr := c.Params(":dashboardId")
+	dashboardId, err := strconv.Atoi(dashboardIdStr)
+	if err != nil {
+		return Json(404, util.DynMap{
+			"message": err.Error(),
+			"status":  "cannot-find-dashboard",
+		})
+	}
+	cmd.DashboardId = int64(dashboardId)
 
 	if err := bus.Dispatch(&cmd); err != nil {
 		return Json(500, util.DynMap{
