@@ -3,19 +3,15 @@
 import './revision_ctrl';
 
 import coreModule from 'app/core/core_module';
+import {DashboardModel} from '../dashboard/model';
 
 export class AuditSrv {
-  globalAuditPromise: any;
-
   /** @ngInject */
-  constructor(private $rootScope) {
-    $rootScope.onAppEvent('refresh', this.clearCache.bind(this), $rootScope);
-  }
+  constructor(private backendSrv) {}
 
-  clearCache() {
-    this.globalAuditPromise = null;
+  getAuditLog(dashboard: DashboardModel) {
+    return this.backendSrv.get(`api/dashboards/db/${dashboard.meta.slug}/versions`);
   }
 }
 
 coreModule.service('auditSrv', AuditSrv);
-
