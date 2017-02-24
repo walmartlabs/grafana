@@ -7,10 +7,11 @@ import {DashboardModel} from '../dashboard/model';
 
 export class AuditSrv {
   /** @ngInject */
-  constructor(private backendSrv) {}
+  constructor(private backendSrv, private $q) {}
 
   getAuditLog(dashboard: DashboardModel) {
-    return this.backendSrv.get(`api/dashboards/db/${dashboard.meta.slug}/versions`);
+    const url = `api/dashboards/db/${dashboard.id}/versions`;
+    return dashboard.id ? this.backendSrv.get(url) : this.$q.when([]);
   }
 }
 
