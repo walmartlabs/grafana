@@ -3,9 +3,9 @@
 import coreModule from 'app/core/core_module';
 
 export class AuditLogCtrl {
-  mode: any;
   dashboard: any;
-  currentAuditLog: any;
+  mode: any;
+  revisions: any;
 
   /** @ngInject */
   constructor(private $scope, private auditSrv) {
@@ -23,8 +23,8 @@ export class AuditLogCtrl {
   }
 
   auditLogChange() {
-    return this.auditSrv.getAuditLog(this.dashboard).then(auditLog => {
-      this.currentAuditLog = auditLog;
+    return this.auditSrv.getAuditLog(this.dashboard).then(revisions => {
+      this.revisions = revisions.reverse();
     });
   }
 

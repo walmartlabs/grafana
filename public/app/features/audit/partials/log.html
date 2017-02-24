@@ -22,11 +22,28 @@
 
 	<div class="tabbed-view-body">
 		<div class="editor-row row" ng-if="ctrl.mode === 'list'">
+			<div ng-if="ctrl.revisions.length === 0">
+				<em>No revisions to compare</em>
+			</div>
 			<table class="grafana-options-table">
+				<tr ng-repeat="revision in ctrl.revisions">
+					<td>
+						{{revision.version}}
+					</td>
+					<td>
+						{{revision.created}}
+					</td>
+					<td>
+						{{revision.createdBy}}
+					</td>
+					<td>
+						<a ng-show="revision.version !== ctrl.dashboard.version">Restore this version</a>
+					</td>
+				</tr>
 			</table>
 		</div>
 
-		<div class="gf-form" ng-show="ctrl.mode === 'list'">
+		<div class="gf-form" ng-show="ctrl.mode === 'list' && ctrl.revisions.length > 0">
 			<div class="gf-form-button-row">
 				<a type="button" class="btn gf-form-button btn-success" ng-click="ctrl.mode = 'compare';"><i class="fa fa-copy" ></i>&nbsp;&nbsp;Compare</a>
 			</div>
