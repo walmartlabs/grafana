@@ -21,31 +21,44 @@
 	</div>
 
 	<div class="tabbed-view-body">
-		<div class="editor-row row" ng-if="ctrl.mode === 'list'">
-			<div ng-if="ctrl.revisions.length === 0">
-				<em>No revisions to compare</em>
-			</div>
-			<table class="grafana-options-table">
-				<tr ng-repeat="revision in ctrl.revisions">
-					<td>
-						{{revision.version}}
-					</td>
-					<td>
-						{{revision.created}}
-					</td>
-					<td>
-						{{revision.createdBy}}
-					</td>
-					<td>
-						<a ng-show="revision.version !== ctrl.dashboard.version">Restore this version</a>
-					</td>
-				</tr>
-			</table>
-		</div>
+		<div class="gf-form" ng-if="ctrl.mode === 'list'">
+			<div class="gf-form-group">
+				<div ng-if="ctrl.revisions.length === 0">
+					<em>No revisions to compare</em>
+				</div>
 
-		<div class="gf-form" ng-show="ctrl.mode === 'list' && ctrl.revisions.length > 0">
-			<div class="gf-form-button-row">
-				<a type="button" class="btn gf-form-button btn-success" ng-click="ctrl.mode = 'compare';"><i class="fa fa-copy" ></i>&nbsp;&nbsp;Compare</a>
+				<table class="filter-table">
+					<thead>
+						<tr>
+							<th></th>
+							<th>Version</th>
+							<th class="width-14">Date</th>
+							<th class="width-10">Created By</th>
+							<th class="width-10">Updated By</th>
+							<th></th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr ng-repeat="revision in ctrl.revisions">
+							<td><editor-checkbox text="" model="ctrl.active[revision.version]"></editor-checkbox></td>
+							<td>{{revision.version}}</td>
+							<td>{{ctrl.dashboard.formatDate(revision.created)}}</td>
+							<td>{{ctrl.dashboard.meta.createdBy}}</td>
+							<td>{{revision.createdBy}}</td>
+							<td class="text-right">
+								<a class="btn btn-inverse btn-small" ng-show="revision.version !== ctrl.dashboard.version">
+									<i class="fa fa-rotate-right"></i>
+									Restore this version
+								</a>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				<div class="gf-form-group" ng-show="ctrl.mode === 'list' && ctrl.revisions.length > 0">
+					<div class="gf-form-button-row">
+						<a type="button" class="btn gf-form-button btn-success" ng-click="ctrl.mode = 'compare';"><i class="fa fa-copy" ></i>&nbsp;&nbsp;Compare</a>
+					</div>
+				</div>
 			</div>
 		</div>
 
