@@ -16,9 +16,9 @@ export interface RevisionsModel {
 }
 
 export class AuditLogCtrl {
-  old: number;
-  new: number;
+  compare: { original: number; new: number; };
   dashboard: DashboardModel;
+  delta: any;
   mode: string;
   revisions: RevisionsModel[];
 
@@ -26,41 +26,49 @@ export class AuditLogCtrl {
   constructor(private $scope, private auditSrv) {
     $scope.ctrl = this;
 
-    this.mode = 'list';
     this.dashboard = $scope.dashboard;
-    this.old = null;
-    this.new = null;
+    this.mode = 'list';
 
-    this.reset();
+    this.resetFromSource();
 
     $scope.$watch('ctrl.mode', newVal => {
-      if (newVal === 'restore') {
+      if (newVal === 'list') {
         this.reset();
       }
     });
   }
 
-  auditLogChange() {
+  getLog() {
     return this.auditSrv.getAuditLog(this.dashboard).then(revisions => {
       this.revisions = revisions.reverse();
     });
   }
 
+  getDiff() {
+    this.mode = 'compare';
+    return this.auditSrv.compareVersions(this.dashboard, this.compare).then(response => {
+      this.delta = response.delta;
+    });
+  }
+
   isComparable() {
-    const areNumbers = _.isNumber(this.old) && _.isNumber(this.new);
+    const c = this.compare;
+    const areNumbers = _.isNumber(c.original) && _.isNumber(c.new);
     const areValidVersions = _.filter(this.revisions, revision => {
-      return revision.version === this.old || revision.version === this.new;
+      return revision.version === c.original || revision.version === c.new;
     }).length === 2;
     return areNumbers && areValidVersions;
   }
 
-  compare() {
-    this.mode = 'compare';
-    console.log('comparing %o version %d to version %d', this.dashboard, this.old, this.new);
+  reset() {
+    this.delta = null;
   }
 
-  reset() {
-    this.auditLogChange();
+  resetFromSource() {
+    this.reset();
+    this.revisions = [];
+    this.compare = { original: null, new: null };
+    this.getLog();
   }
 }
 
