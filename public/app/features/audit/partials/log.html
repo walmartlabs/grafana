@@ -21,17 +21,18 @@
 	</div>
 
 	<div class="tabbed-view-body">
-    <div ng-if="ctrl.revisions.length === 0">
-      <em>No revisions to compare</em>
-    </div>
+		<div ng-if="ctrl.revisions.length === 0">
+			<em>No revisions to compare</em>
+		</div>
 
-    <div class="gf-form" ng-if="ctrl.mode === 'list' && ctrl.revisions.length > 0">
+		<div class="gf-form" ng-if="ctrl.mode === 'list' && ctrl.revisions.length > 0">
 			<div class="gf-form-group">
 				<table class="filter-table">
 					<thead>
 						<tr>
-							<th></th>
-							<th>Version</th>
+							<th class="width-4"></th>
+							<th class="width-4"></th>
+							<th class="width-6">Version</th>
 							<th class="width-14">Date</th>
 							<th class="width-10">Created By</th>
 							<th class="width-10">Updated By</th>
@@ -40,15 +41,15 @@
 					</thead>
 					<tbody>
 						<tr ng-repeat="revision in ctrl.revisions">
-							<td><editor-checkbox text="" model="ctrl.active[revision.version]"></editor-checkbox></td>
+							<td><input type="radio" ng-model="ctrl.old" ng-value="revision.version"></td>
+							<td><input type="radio" ng-model="ctrl.new" ng-value="revision.version"></td>
 							<td>{{revision.version}}</td>
 							<td>{{ctrl.dashboard.formatDate(revision.created)}}</td>
 							<td>{{ctrl.dashboard.meta.createdBy}}</td>
 							<td>{{revision.createdBy}}</td>
 							<td class="text-right">
 								<a class="btn btn-inverse btn-small" ng-show="revision.version !== ctrl.dashboard.version">
-									<i class="fa fa-rotate-right"></i>
-									Restore this version
+									<i class="fa fa-rotate-right"></i>&nbsp;&nbsp;Restore this version
 								</a>
 							</td>
 						</tr>
@@ -56,7 +57,9 @@
 				</table>
 				<div class="gf-form-group" ng-show="ctrl.mode === 'list' && ctrl.revisions.length > 0">
 					<div class="gf-form-button-row">
-						<a type="button" class="btn gf-form-button btn-success" ng-click="ctrl.mode = 'compare';"><i class="fa fa-copy" ></i>&nbsp;&nbsp;Compare</a>
+						<a type="button" class="btn gf-form-button btn-success" ng-class="{disabled: !ctrl.isComparable()}" ng-click="ctrl.compare()" ng-disabled="!ctrl.isComparable()">
+							<i class="fa fa-copy" ></i>&nbsp;&nbsp;Compare
+						</a>
 					</div>
 				</div>
 			</div>

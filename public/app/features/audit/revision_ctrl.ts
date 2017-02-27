@@ -1,12 +1,9 @@
 ///<reference path="../../headers/common.d.ts" />
 
+import _ from 'lodash';
 import coreModule from 'app/core/core_module';
 
 import {DashboardModel} from '../dashboard/model';
-
-export interface CompareRevisionsModel {
-  [key: number]: boolean;
-}
 
 export interface RevisionsModel {
   id: number;
@@ -19,7 +16,8 @@ export interface RevisionsModel {
 }
 
 export class AuditLogCtrl {
-  active: CompareRevisionsModel[];
+  old: number;
+  new: number;
   dashboard: DashboardModel;
   mode: string;
   revisions: RevisionsModel[];
@@ -30,12 +28,14 @@ export class AuditLogCtrl {
 
     this.mode = 'list';
     this.dashboard = $scope.dashboard;
-    this.active = [];
+    this.old = null;
+    this.new = null;
+
     this.reset();
 
     $scope.$watch('ctrl.mode', newVal => {
-      if (newVal === 'compare') {
-        this.compare();
+      if (newVal === 'restore') {
+        this.reset();
       }
     });
   }
@@ -43,18 +43,24 @@ export class AuditLogCtrl {
   auditLogChange() {
     return this.auditSrv.getAuditLog(this.dashboard).then(revisions => {
       this.revisions = revisions.reverse();
-      this.active = this.revisions.map(revision => {
-        return { [revision.version]: false };
-      });
     });
+  }
+
+  isComparable() {
+    const areNumbers = _.isNumber(this.old) && _.isNumber(this.new);
+    const areValidVersions = _.filter(this.revisions, revision => {
+      return revision.version === this.old || revision.version === this.new;
+    }).length === 2;
+    return areNumbers && areValidVersions;
+  }
+
+  compare() {
+    this.mode = 'compare';
+    console.log('comparing %o version %d to version %d', this.dashboard, this.old, this.new);
   }
 
   reset() {
     this.auditLogChange();
-  }
-
-  compare() {
-    console.log('compare', this.dashboard);
   }
 }
 
