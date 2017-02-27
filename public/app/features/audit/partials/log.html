@@ -41,8 +41,8 @@
 					</thead>
 					<tbody>
 						<tr ng-repeat="revision in ctrl.revisions">
-							<td><input type="radio" ng-model="ctrl.old" ng-value="revision.version"></td>
-							<td><input type="radio" ng-model="ctrl.new" ng-value="revision.version"></td>
+							<td><input type="radio" ng-model="ctrl.compare.original" ng-value="revision.version"></td>
+							<td><input type="radio" ng-model="ctrl.compare.new" ng-value="revision.version"></td>
 							<td>{{revision.version}}</td>
 							<td>{{ctrl.dashboard.formatDate(revision.created)}}</td>
 							<td>{{ctrl.dashboard.meta.createdBy}}</td>
@@ -57,7 +57,7 @@
 				</table>
 				<div class="gf-form-group" ng-show="ctrl.mode === 'list' && ctrl.revisions.length > 0">
 					<div class="gf-form-button-row">
-						<a type="button" class="btn gf-form-button btn-success" ng-class="{disabled: !ctrl.isComparable()}" ng-click="ctrl.compare()" ng-disabled="!ctrl.isComparable()">
+						<a type="button" class="btn gf-form-button btn-success" ng-class="{disabled: !ctrl.isComparable()}" ng-click="ctrl.getDiff();" ng-disabled="!ctrl.isComparable()">
 							<i class="fa fa-copy" ></i>&nbsp;&nbsp;Compare
 						</a>
 					</div>
@@ -66,6 +66,17 @@
 		</div>
 
 		<div class="audit-log" ng-if="ctrl.mode === 'compare'">
+			<div class="clearfix">
+				<a type="button" class="btn gf-form-button btn-secondary pull-left" ng-click="ctrl.mode = 'list'">
+					<i class="fa fa-arrow-left" ></i>&nbsp;&nbsp;Back to audit log
+				</a>
+				<a type="button" class="btn gf-form-button btn-success pull-right" ng-show="ctrl.compare.new === ctrl.revisions[0].version">
+					<i class="fa fa-rotate-right" ></i>&nbsp;&nbsp;Restore version {{ctrl.compare.original}}
+				</a>
+			</div>
+
+				<div>{{ctrl.delta}}</div>
+			</div>
 		</div>
 
 	</div>
