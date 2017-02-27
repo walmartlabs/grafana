@@ -21,12 +21,12 @@
 	</div>
 
 	<div class="tabbed-view-body">
-		<div class="gf-form" ng-if="ctrl.mode === 'list'">
-			<div class="gf-form-group">
-				<div ng-if="ctrl.revisions.length === 0">
-					<em>No revisions to compare</em>
-				</div>
+    <div ng-if="ctrl.revisions.length === 0">
+      <em>No revisions to compare</em>
+    </div>
 
+    <div class="gf-form" ng-if="ctrl.mode === 'list' && ctrl.revisions.length > 0">
+			<div class="gf-form-group">
 				<table class="filter-table">
 					<thead>
 						<tr>
