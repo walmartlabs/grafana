@@ -94,7 +94,6 @@ func SaveDashboard(cmd *m.SaveDashboardCommand) error {
 		}
 
 		dashVersion := &m.DashboardVersion{
-			Slug:          dash.Slug,
 			DashboardId:   dash.Id,
 			ParentVersion: parentVersion,
 			Version:       dash.Version,

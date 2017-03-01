@@ -17,7 +17,6 @@ var (
 type DashboardVersion struct {
 	Id            int64
 	DashboardId   int64
-	Slug          string
 	ParentVersion int
 	Version       int
 
@@ -34,7 +33,6 @@ type DashboardVersion struct {
 type DashboardVersionDTO struct {
 	Id            int64     `json:"id"`
 	DashboardId   int64     `json:"dashboardId"`
-	Slug          string    `json:"slug"`
 	ParentVersion int       `json:"parentVersion"`
 	Version       int       `json:"version"`
 	Created       time.Time `json:"created"`

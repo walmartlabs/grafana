@@ -106,7 +106,6 @@ func RestoreDashboardVersion(cmd *m.RestoreDashboardVersionCommand) error {
 
 		// save that version a new version
 		dashVersion := &m.DashboardVersion{
-			Slug:          dashboard.Slug,
 			DashboardId:   dashboard.Id,
 			ParentVersion: cmd.Version,
 			Version:       dashboard.Version,

@@ -8,8 +8,6 @@ func addDashboardVersionMigration(mg *Migrator) {
 		Columns: []*Column{
 			{Name: "id", Type: DB_BigInt, IsPrimaryKey: true, IsAutoIncrement: true},
 			{Name: "dashboard_id", Type: DB_BigInt},
-			// Don't actually need the slug
-			{Name: "slug", Type: DB_NVarchar, Length: 255, Nullable: false},
 			{Name: "parent_version", Type: DB_Int, Nullable: false},
 			{Name: "version", Type: DB_Int, Nullable: false},
 			{Name: "created", Type: DB_DateTime, Nullable: false},
