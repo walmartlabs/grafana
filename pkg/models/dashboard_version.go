@@ -15,28 +15,39 @@ var (
 // A DashboardVersion represents the comparable data in a dashboard, allowing
 // diffs of the dashboard to be performed.
 type DashboardVersion struct {
-	Id            int64
-	DashboardId   int64
-	ParentVersion int
-	Version       int
+	Id            int64 `json:"id"`
+	DashboardId   int64 `json:"dashboardId"`
+	ParentVersion int   `json:"parentVersion"`
+	Version       int   `json:"version"`
 
-	Created time.Time
+	Created time.Time `json:"created"`
 
-	CreatedBy int64
+	CreatedBy int64 `json:"createdBy"`
 
-	Message string
-	Data    *simplejson.Json
+	Message string           `json:"message"`
+	Data    *simplejson.Json `json:"data"`
+}
+
+// DashboardVersionMeta extends the dashboard version model with the names
+// associated with the UserIds, overriding the field with the same name from
+// the DashboardVersion model.
+type DashboardVersionMeta struct {
+	DashboardVersion
+	CreatedBy string `json:"createdBy"`
 }
 
 // DashboardVersionDTO represents a dashboard version, without the dashboard
 // map.
+//
+// TODO(ben) consider renaming to `DashboardVersioneta`, and rename the above
+// struct `DashboardVersionsFullMeta` to follow other naming conventions
 type DashboardVersionDTO struct {
 	Id            int64     `json:"id"`
 	DashboardId   int64     `json:"dashboardId"`
 	ParentVersion int       `json:"parentVersion"`
 	Version       int       `json:"version"`
 	Created       time.Time `json:"created"`
-	CreatedBy     int64     `json:"createdBy"`
+	CreatedBy     string    `json:"createdBy"`
 	Message       string    `json:"message"`
 }
 
