@@ -15,10 +15,11 @@ var (
 // A DashboardVersion represents the comparable data in a dashboard, allowing
 // diffs of the dashboard to be performed.
 type DashboardVersion struct {
-	Id          int64
-	DashboardId int64
-	Slug        string
-	Version     int
+	Id            int64
+	DashboardId   int64
+	Slug          string
+	ParentVersion int
+	Version       int
 
 	Created time.Time
 
@@ -31,13 +32,14 @@ type DashboardVersion struct {
 // DashboardVersionDTO represents a dashboard version, without the dashboard
 // map.
 type DashboardVersionDTO struct {
-	Id          int64     `json:"id"`
-	DashboardId int64     `json:"dashboardId"`
-	Slug        string    `json:"slug"`
-	Version     int       `json:"version"`
-	Created     time.Time `json:"created"`
-	CreatedBy   int64     `json:"createdBy"`
-	Message     string    `json:"message"`
+	Id            int64     `json:"id"`
+	DashboardId   int64     `json:"dashboardId"`
+	Slug          string    `json:"slug"`
+	ParentVersion int       `json:"parentVersion"`
+	Version       int       `json:"version"`
+	Created       time.Time `json:"created"`
+	CreatedBy     int64     `json:"createdBy"`
+	Message       string    `json:"message"`
 }
 
 //
@@ -66,6 +68,7 @@ type GetDashboardVersionsCommand struct {
 type RestoreDashboardVersionCommand struct {
 	DashboardId int64 `json:"dashboardId"`
 	Version     int   `json:"version" binding:"Required"`
+	UserId      int64 `json:"-"`
 
 	Result *DashboardVersion
 }

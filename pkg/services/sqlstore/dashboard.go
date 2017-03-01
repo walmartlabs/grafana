@@ -70,43 +70,43 @@ func SaveDashboard(cmd *m.SaveDashboardCommand) error {
 			}
 		}
 
-		affectedRows := int64(0)
+		parentVersion := dash.Version
+		version, err := getMaxVersion(sess, dash.Id)
+		if err != nil {
+			return err
+		}
+		dash.Version = version
 
-		// This is where to add the new data
+		affectedRows := int64(0)
 		if dash.Id == 0 {
 			metrics.M_Models_Dashboard_Insert.Inc(1)
+			dash.Data.Set("version", dash.Version)
 			affectedRows, err = sess.Insert(dash)
 		} else {
-			dash.Version += 1
 			dash.Data.Set("version", dash.Version)
 			affectedRows, err = sess.Id(dash.Id).Update(dash)
 		}
-
+		if err != nil {
+			return err
+		}
 		if affectedRows == 0 {
 			return m.ErrDashboardNotFound
 		}
 
-		// update the dashboard version table
-		//
-		// TODO(ben): if there isn't any history for the table, save the
-		// previous version before saving the current one - that way people who
-		// have just adopted this feature can benefit as soon as they upgrade
-		//
-		// TODO(ben): if nothing has changed, don't:
-		//   - update the version number
-		//   - save a new version
-		//
-		// TODO(ben): deal with updating the message
 		dashVersion := &m.DashboardVersion{
-			Slug:        dash.Slug,
-			DashboardId: dash.Id,
-			Version:     dash.Version,
-			Created:     time.Now(),
-			CreatedBy:   dash.UpdatedBy,
-			Message:     "",
-			Data:        dash.Data,
+			Slug:          dash.Slug,
+			DashboardId:   dash.Id,
+			ParentVersion: parentVersion,
+			Version:       dash.Version,
+			Created:       time.Now(),
+			CreatedBy:     dash.UpdatedBy,
+			Message:       "",
+			Data:          dash.Data,
 		}
 		affectedRows, err = sess.Insert(dashVersion)
+		if err != nil {
+			return err
+		}
 		if affectedRows == 0 {
 			return m.ErrDashboardNotFound
 		}

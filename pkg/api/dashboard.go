@@ -280,13 +280,14 @@ func GetDashboardVersions(c *middleware.Context) {
 	dashboardVersions := make([]*m.DashboardVersionDTO, len(query.Result))
 	for i, dashboardVersion := range query.Result {
 		dashboardVersions[i] = &m.DashboardVersionDTO{
-			Id:          dashboardVersion.Id,
-			DashboardId: dashboardVersion.DashboardId,
-			Slug:        dashboardVersion.Slug,
-			Version:     dashboardVersion.Version,
-			Created:     dashboardVersion.Created,
-			CreatedBy:   dashboardVersion.CreatedBy,
-			Message:     dashboardVersion.Message,
+			Id:            dashboardVersion.Id,
+			DashboardId:   dashboardVersion.DashboardId,
+			Slug:          dashboardVersion.Slug,
+			ParentVersion: dashboardVersion.ParentVersion,
+			Version:       dashboardVersion.Version,
+			Created:       dashboardVersion.Created,
+			CreatedBy:     dashboardVersion.CreatedBy,
+			Message:       dashboardVersion.Message,
 		}
 	}
 
@@ -399,6 +400,14 @@ func CompareDashboardVersion(c *middleware.Context, cmd m.CompareDashboardVersio
 
 // RestoreDashboardVersion restores a dashboard to the given version.
 func RestoreDashboardVersion(c *middleware.Context, cmd m.RestoreDashboardVersionCommand) Response {
+	if !c.IsSignedIn {
+		return Json(401, util.DynMap{
+			"message": "Must be signed in to restore a version",
+			"status":  "unauthorized",
+		})
+	}
+
+	cmd.UserId = c.UserId
 	dashboardIdStr := c.Params(":dashboardId")
 	dashboardId, err := strconv.Atoi(dashboardIdStr)
 	if err != nil {
