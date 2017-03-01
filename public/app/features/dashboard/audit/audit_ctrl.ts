@@ -1,9 +1,9 @@
-///<reference path="../../headers/common.d.ts" />
+///<reference path="../../../headers/common.d.ts" />
 
 import _ from 'lodash';
 import coreModule from 'app/core/core_module';
 
-import {DashboardModel} from '../dashboard/model';
+import {DashboardModel} from '../model';
 
 export interface RevisionsModel {
   id: number;
