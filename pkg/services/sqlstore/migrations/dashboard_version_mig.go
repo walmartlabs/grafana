@@ -8,7 +8,7 @@ func addDashboardVersionMigration(mg *Migrator) {
 		Columns: []*Column{
 			{Name: "id", Type: DB_BigInt, IsPrimaryKey: true, IsAutoIncrement: true},
 			{Name: "dashboard_id", Type: DB_BigInt},
-			{Name: "slug", Type: DB_NVarchar, Length: 255, Nullable: false},
+			{Name: "parent_version", Type: DB_Int, Nullable: false},
 			{Name: "version", Type: DB_Int, Nullable: false},
 			{Name: "created", Type: DB_DateTime, Nullable: false},
 			{Name: "created_by", Type: DB_BigInt, Nullable: false},
@@ -17,13 +17,35 @@ func addDashboardVersionMigration(mg *Migrator) {
 		},
 		Indices: []*Index{
 			{Cols: []string{"dashboard_id"}},
+			{Cols: []string{"dashboard_id", "version"}, Type: UniqueIndex},
 		},
 	}
 
 	mg.AddMigration("create dashboard_version table v1", NewAddTableMigration(dashboardVersionV1))
-
 	mg.AddMigration("add index dashboard_version.dashboard_id", NewAddIndexMigration(dashboardVersionV1, dashboardVersionV1.Indices[0]))
-}
+	mg.AddMigration("add unique index dashboard_version.dashboard_id and dashboard_version.version", NewAddIndexMigration(dashboardVersionV1, dashboardVersionV1.Indices[1]))
 
-// TODO(ben): this migration should also migrate any existing data from the
-// dashboard table to the dashboard version table
+	const rawSQL = `INSERT INTO dashboard_version
+(
+	dashboard_id,
+	version,
+	parent_version,
+	created,
+	created_by,
+	message,
+	data
+)
+SELECT
+	dashboard.id,
+	dashboard.version + 1,
+	dashboard.version,
+	dashboard.updated,
+	dashboard.updated_by,
+	'',
+	dashboard.data
+FROM dashboard;`
+	mg.AddMigration("save existing dashboard data in dashboard_version table v1", new(RawSqlMigration).
+		Sqlite(rawSQL).
+		Postgres(rawSQL).
+		Mysql(rawSQL))
+}

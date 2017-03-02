@@ -275,18 +275,21 @@ func GetDashboardVersions(c *middleware.Context) {
 		return
 	}
 
-	// TODO(ben): decide if you want to return the results or just
-	// the DTO results. Right now we do only the DTO results
 	dashboardVersions := make([]*m.DashboardVersionDTO, len(query.Result))
 	for i, dashboardVersion := range query.Result {
+		creator := "Anonymous"
+		if dashboardVersion.CreatedBy > 0 {
+			creator = getUserLogin(dashboardVersion.CreatedBy)
+		}
+
 		dashboardVersions[i] = &m.DashboardVersionDTO{
-			Id:          dashboardVersion.Id,
-			DashboardId: dashboardVersion.DashboardId,
-			Slug:        dashboardVersion.Slug,
-			Version:     dashboardVersion.Version,
-			Created:     dashboardVersion.Created,
-			CreatedBy:   dashboardVersion.CreatedBy,
-			Message:     dashboardVersion.Message,
+			Id:            dashboardVersion.Id,
+			DashboardId:   dashboardVersion.DashboardId,
+			ParentVersion: dashboardVersion.ParentVersion,
+			Version:       dashboardVersion.Version,
+			Created:       dashboardVersion.Created,
+			CreatedBy:     creator,
+			Message:       dashboardVersion.Message,
 		}
 	}
 
@@ -318,7 +321,17 @@ func GetDashboardVersion(c *middleware.Context) {
 		return
 	}
 
-	c.JSON(200, query.Result)
+	creator := "Anonymous"
+	if query.Result.CreatedBy > 0 {
+		creator = getUserLogin(query.Result.CreatedBy)
+	}
+
+	dashVersionMeta := &m.DashboardVersionMeta{
+		DashboardVersion: *query.Result,
+		CreatedBy:        creator,
+	}
+
+	c.JSON(200, dashVersionMeta)
 }
 
 // CompareDashboardVersionByID compares dashboards the way the GitHub API does.
@@ -399,6 +412,14 @@ func CompareDashboardVersion(c *middleware.Context, cmd m.CompareDashboardVersio
 
 // RestoreDashboardVersion restores a dashboard to the given version.
 func RestoreDashboardVersion(c *middleware.Context, cmd m.RestoreDashboardVersionCommand) Response {
+	if !c.IsSignedIn {
+		return Json(401, util.DynMap{
+			"message": "Must be signed in to restore a version",
+			"status":  "unauthorized",
+		})
+	}
+
+	cmd.UserId = c.UserId
 	dashboardIdStr := c.Params(":dashboardId")
 	dashboardId, err := strconv.Atoi(dashboardIdStr)
 	if err != nil {

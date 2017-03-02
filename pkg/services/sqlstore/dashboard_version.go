@@ -1,6 +1,8 @@
 package sqlstore
 
 import (
+	"time"
+
 	"github.com/go-xorm/xorm"
 	"github.com/grafana/grafana/pkg/bus"
 	"github.com/grafana/grafana/pkg/components/simplejson"
@@ -81,15 +83,42 @@ func RestoreDashboardVersion(cmd *m.RestoreDashboardVersionCommand) error {
 			return err
 		}
 
-		// Update dasboard model
-		dashboard.Version = dashboardVersion.Version
-		dashboard.Data = dashboardVersion.Data
-
-		rows, err := sess.Id(dashboard.Id).Update(dashboard)
+		version, err := getMaxVersion(sess, dashboard.Id)
 		if err != nil {
 			return err
 		}
-		if rows == 0 {
+
+		// revert and save to a new dashboard version
+		dashboard.Data = dashboardVersion.Data
+		dashboard.Updated = time.Now()
+		dashboard.UpdatedBy = cmd.UserId
+		dashboard.Version = version
+		dashboard.Data.Set("version", dashboard.Version)
+		// TODO(ben): decide when this should be cleared... on save maybe?
+		dashboard.Data.Set("restoredFrom", cmd.Version)
+		affectedRows, err := sess.Id(dashboard.Id).Update(dashboard)
+		if err != nil {
+			return err
+		}
+		if affectedRows == 0 {
+			return m.ErrDashboardNotFound
+		}
+
+		// save that version a new version
+		dashVersion := &m.DashboardVersion{
+			DashboardId:   dashboard.Id,
+			ParentVersion: cmd.Version,
+			Version:       dashboard.Version,
+			Created:       time.Now(),
+			CreatedBy:     dashboard.UpdatedBy,
+			Message:       "",
+			Data:          dashboard.Data,
+		}
+		affectedRows, err = sess.Insert(dashVersion)
+		if err != nil {
+			return err
+		}
+		if affectedRows == 0 {
 			return m.ErrDashboardNotFound
 		}
 
@@ -116,7 +145,9 @@ func getDashboardVersion(dashboardId int64, version int) (*m.DashboardVersion, e
 	if len(dashboardVersions) < 1 {
 		return nil, m.ErrDashboardVersionNotFound
 	}
-	return dashboardVersions[0], nil
+
+	dashboardVersions[0].Data.Set("id", dashboardVersions[0].DashboardId)
+	return dashboardVersions[0], nil // TODO(ben): look into using .Find() here
 }
 
 // getDashboard gets a dashboard by ID. Used for retrieving the dashboard
@@ -158,4 +189,27 @@ func diff(original, newDashboard *m.DashboardVersion) (map[string]interface{}, e
 
 	format := formatter.NewDeltaFormatter()
 	return format.FormatAsJson(diff)
+}
+
+type version struct {
+	Max int
+}
+
+// getMaxVersion returns the highest version number in the `dashboard_version`
+// table
+func getMaxVersion(sess *xorm.Session, dashboardId int64) (int, error) {
+	v := version{}
+	has, err := sess.Table("dashboard_version").
+		Select("MAX(version) AS max").
+		Where("dashboard_id = ?", dashboardId).
+		Get(&v)
+	if !has {
+		return 0, m.ErrDashboardNotFound
+	}
+	if err != nil {
+		return 0, err
+	}
+
+	v.Max++
+	return v.Max, nil
 }

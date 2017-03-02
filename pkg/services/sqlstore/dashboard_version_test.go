@@ -1,6 +1,7 @@
 package sqlstore
 
 import (
+	"reflect"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -39,13 +40,14 @@ func TestGetDashboardVersion(t *testing.T) {
 			So(savedDash.Id, ShouldEqual, cmd.DashboardId)
 			So(savedDash.Version, ShouldEqual, cmd.Version)
 
-			// This won't pass until we add referential integrity -- the result
-			// has a version with the type `json.Number` but the saved dashboard
-			// has a version with the type `int`, causing the DeepEqual to
-			// return false.
-
-			// eq := reflect.DeepEqual(savedDash.Data, cmd.Result.Data)
-			// So(eq, ShouldEqual, true)
+			dashCmd := m.GetDashboardQuery{
+				OrgId: savedDash.OrgId,
+				Slug:  savedDash.Slug,
+			}
+			err = GetDashboard(&dashCmd)
+			So(err, ShouldBeNil)
+			eq := reflect.DeepEqual(dashCmd.Result.Data, cmd.Result.Data)
+			So(eq, ShouldEqual, true)
 		})
 
 		Convey("Attempt to get a version that doesn't exist", func() {
@@ -106,19 +108,26 @@ func TestGetDashboardVersions(t *testing.T) {
 func TestCompareDashboardVersions(t *testing.T) {
 	Convey("Testing dashboard version comparison", t, func() {
 		InitTestDB(t)
-		savedDash := insertTestDashboard("test dash 43", 1, "diff")
+
+		savedDash := insertTestDashboard("test dash 43", 1, "x")
 		updateTestDashboard(savedDash, map[string]interface{}{
-			"tags": "different tag",
+			"tags": "y",
 		})
 
 		Convey("Compare two versions that are different", func() {
+			getVersionCmd := m.GetDashboardVersionsCommand{
+				DashboardId: savedDash.Id,
+			}
+			err := GetDashboardVersions(&getVersionCmd)
+			So(err, ShouldBeNil)
+			So(len(getVersionCmd.Result), ShouldEqual, 2)
+
 			cmd := m.CompareDashboardVersionsCommand{
 				DashboardId: savedDash.Id,
-				Original:    savedDash.Version,
-				New:         savedDash.Version + 1,
+				Original:    getVersionCmd.Result[0].Version,
+				New:         getVersionCmd.Result[1].Version,
 			}
-
-			err := CompareDashboardVersionsCommand(&cmd)
+			err = CompareDashboardVersionsCommand(&cmd)
 			So(err, ShouldBeNil)
 			So(cmd.Delta, ShouldNotBeNil)
 		})
