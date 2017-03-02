@@ -144,7 +144,17 @@ func TestCompareDashboardVersions(t *testing.T) {
 			So(cmd.Delta, ShouldBeNil)
 		})
 
-		// TODO(ben): diff versions that don't exist to check error condition
+		Convey("Compare two versions that don't exist", func() {
+			cmd := m.CompareDashboardVersionsCommand{
+				DashboardId: savedDash.Id,
+				Original:    123,
+				New:         456,
+			}
+
+			err := CompareDashboardVersionsCommand(&cmd)
+			So(err, ShouldNotBeNil)
+			So(cmd.Delta, ShouldBeNil)
+		})
 	})
 }
 

@@ -38,9 +38,6 @@ type DashboardVersionMeta struct {
 
 // DashboardVersionDTO represents a dashboard version, without the dashboard
 // map.
-//
-// TODO(ben) consider renaming to `DashboardVersioneta`, and rename the above
-// struct `DashboardVersionsFullMeta` to follow other naming conventions
 type DashboardVersionDTO struct {
 	Id            int64     `json:"id"`
 	DashboardId   int64     `json:"dashboardId"`
