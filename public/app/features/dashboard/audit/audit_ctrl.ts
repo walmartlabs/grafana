@@ -10,10 +10,10 @@ import {DashboardModel} from '../model';
 export interface RevisionsModel {
   id: number;
   dashboardId: number;
-  slug: string;
+  parentVersion: number;
   version: number;
   created: Date;
-  createdBy: number;
+  createdBy: string;
   message: string;
 }
 
@@ -26,9 +26,9 @@ export class AuditLogCtrl {
   revisions: RevisionsModel[];
 
   /** @ngInject */
-  constructor(private $q,
-              private $scope,
+  constructor(private $scope,
               private $window,
+              private contextSrv,
               private auditSrv) {
     $scope.ctrl = this;
 
@@ -67,7 +67,6 @@ export class AuditLogCtrl {
     this.loading = true;
     return this.auditSrv.getAuditLog(this.dashboard).then(revisions => {
       this.revisions = revisions.reverse();
-      return this.revisions;
     }).finally(() => { this.loading = false; });
   }
 
@@ -82,13 +81,12 @@ export class AuditLogCtrl {
 
   reset() {
     this.delta = null;
+    this.compare = { original: null, new: null };
   }
 
   resetFromSource() {
-    this.reset();
     this.revisions = [];
-    this.compare = { original: null, new: null };
-    return this.getLog();
+    return this.getLog().then(this.reset.bind(this));
   }
 
   restore(version: number) {
@@ -100,10 +98,19 @@ export class AuditLogCtrl {
       yesText: 'Restore',
       onConfirm: () => {
         this.loading = true;
-        return this.auditSrv.restoreDashboard(this.dashboard, version).then(response => this.$q.all([
-          this.$q.when(response.dashboard),
-          this.resetFromSource(),
-        ])).then(([restoredData]) => {
+        return this.auditSrv.restoreDashboard(this.dashboard, version).then(response => {
+          this.revisions.unshift({
+            id: this.revisions[0].id + 1,
+            dashboardId: this.dashboard.id,
+            parentVersion: version,
+            version: this.revisions[0].version + 1,
+            created: new Date(),
+            createdBy: this.contextSrv.user.name,
+            message: '',
+          });
+
+          this.reset();
+          const restoredData = response.dashboard;
           this.dashboard = restoredData.dashboard;
           this.dashboard.meta = restoredData.meta;
           this.$scope.setupDashboard(restoredData);
