@@ -1,18 +1,21 @@
 package sqlstore
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/go-xorm/xorm"
 	"github.com/grafana/grafana/pkg/bus"
 	"github.com/grafana/grafana/pkg/components/simplejson"
 	m "github.com/grafana/grafana/pkg/models"
+	diffformatter "github.com/grafana/grafana/pkg/services/sqlstore/formatter"
 	jsondiff "github.com/yudai/gojsondiff"
 	"github.com/yudai/gojsondiff/formatter"
 )
 
 func init() {
 	bus.AddHandler("sql", CompareDashboardVersionsCommand)
+	bus.AddHandler("sql", CompareDashboardVersionsHTMLCommand)
 	bus.AddHandler("sql", GetDashboardVersion)
 	bus.AddHandler("sql", GetDashboardVersions)
 	bus.AddHandler("sql", RestoreDashboardVersion)
@@ -36,6 +39,29 @@ func CompareDashboardVersionsCommand(cmd *m.CompareDashboardVersionsCommand) err
 	}
 
 	delta, err := diff(original, newDashboard)
+	if err != nil {
+		return err
+	}
+
+	cmd.Delta = delta
+	return nil
+}
+
+// CompareDashboardVersionsHTMLCommand computes the JSON diff of two versions,
+// assigning the delta of the diff to the `Delta` field.
+func CompareDashboardVersionsHTMLCommand(cmd *m.CompareDashboardVersionsHTMLCommand) error {
+	// Find original version
+	original, err := getDashboardVersion(cmd.DashboardId, cmd.Original)
+	if err != nil {
+		return err
+	}
+
+	newDashboard, err := getDashboardVersion(cmd.DashboardId, cmd.New)
+	if err != nil {
+		return err
+	}
+
+	delta, err := diffHTML(original, newDashboard)
 	if err != nil {
 		return err
 	}
@@ -94,7 +120,7 @@ func RestoreDashboardVersion(cmd *m.RestoreDashboardVersionCommand) error {
 		dashboard.UpdatedBy = cmd.UserId
 		dashboard.Version = version
 		dashboard.Data.Set("version", dashboard.Version)
-		// TODO(ben): decide when this should be cleared... on save maybe?
+		// TODO(ben): decide when this should be cleared, or if it should exist at all
 		dashboard.Data.Set("restoredFrom", cmd.Version)
 		affectedRows, err := sess.Id(dashboard.Id).Update(dashboard)
 		if err != nil {
@@ -122,6 +148,7 @@ func RestoreDashboardVersion(cmd *m.RestoreDashboardVersionCommand) error {
 			return m.ErrDashboardNotFound
 		}
 
+		cmd.Result = dashVersion
 		return nil
 	})
 }
@@ -137,17 +164,17 @@ func RestoreDashboardVersion(cmd *m.RestoreDashboardVersionCommand) error {
 // getDashboardVersion is a helper function that gets the dashboard version for
 // the given dashboard ID and version ID.
 func getDashboardVersion(dashboardId int64, version int) (*m.DashboardVersion, error) {
-	dashboardVersions := make([]*m.DashboardVersion, 0)
-	err := x.Where("dashboard_id=? AND version=?", dashboardId, version).Find(&dashboardVersions)
+	dashboardVersion := m.DashboardVersion{}
+	has, err := x.Where("dashboard_id=? AND version=?", dashboardId, version).Get(&dashboardVersion)
 	if err != nil {
 		return nil, err
 	}
-	if len(dashboardVersions) < 1 {
+	if !has {
 		return nil, m.ErrDashboardVersionNotFound
 	}
 
-	dashboardVersions[0].Data.Set("id", dashboardVersions[0].DashboardId)
-	return dashboardVersions[0], nil // TODO(ben): look into using .Find() here
+	dashboardVersion.Data.Set("id", dashboardVersion.DashboardId)
+	return &dashboardVersion, nil
 }
 
 // getDashboard gets a dashboard by ID. Used for retrieving the dashboard
@@ -164,8 +191,7 @@ func getDashboard(dashboardId int64) (*m.Dashboard, error) {
 	return &dashboard, nil
 }
 
-// diff calculates the diff of two JSON objects
-func diff(original, newDashboard *m.DashboardVersion) (map[string]interface{}, error) {
+func delta(original, newDashboard *m.DashboardVersion) (jsondiff.Diff, error) {
 	originalJSON, err := simplejson.NewFromAny(original).Encode()
 	if err != nil {
 		return nil, err
@@ -182,13 +208,54 @@ func diff(original, newDashboard *m.DashboardVersion) (map[string]interface{}, e
 		return nil, err
 	}
 
-	// TODO(ben) should error with appropriate message
 	if !diff.Modified() {
 		return nil, nil
 	}
 
+	return diff, nil
+}
+
+// diff calculates the diff of two JSON objects. A the two objects are the
+// same, the error, as well as the diff, will be nil, indicating that the diff
+// algorithm ran successfully but no changes were detected.
+func diff(original, newDashboard *m.DashboardVersion) (map[string]interface{}, error) {
+	diff, err := delta(original, newDashboard)
+	if err != nil {
+		return nil, err
+	}
+
 	format := formatter.NewDeltaFormatter()
 	return format.FormatAsJson(diff)
+}
+
+// diffHTML computes the diff as human-readable string output, for use in HTML
+// templating systems.
+func diffHTML(original, newDashboard *m.DashboardVersion) (string, error) {
+	diff, err := delta(original, newDashboard)
+	if err != nil {
+		return "", err
+	}
+
+	result := make(map[string]interface{})
+	originalJSON, err := simplejson.NewFromAny(original).Encode()
+	if err != nil {
+		return "", err
+	}
+	err = json.Unmarshal(originalJSON, &result)
+	if err != nil {
+		return "", err
+	}
+
+	format := diffformatter.NewAsciiFormatter(result, diffformatter.AsciiFormatterConfig{
+		ShowArrayIndex: false,
+		Coloring:       true,
+	})
+	pretty, err := format.Format(diff)
+	if err != nil {
+		return "", err
+	}
+
+	return `<pre><code>` + pretty + `</pre></code>`, nil
 }
 
 type version struct {
@@ -213,3 +280,5 @@ func getMaxVersion(sess *xorm.Session, dashboardId int64) (int, error) {
 	v.Max++
 	return v.Max, nil
 }
+
+// TODO(ben): move all the diff stuff to it's own package

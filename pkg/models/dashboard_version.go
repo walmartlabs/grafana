@@ -87,3 +87,13 @@ type CompareDashboardVersionsCommand struct {
 
 	Delta map[string]interface{} `json:"delta"`
 }
+
+// CompareDashboardVersionsHTMLCommand is used to compare two versions,
+// returning human-readable HTML.
+type CompareDashboardVersionsHTMLCommand struct {
+	DashboardId int64 `json:"dashboardId"`
+	Original    int   `json:"original" binding:"Required"`
+	New         int   `json:"new" binding:"Required"`
+
+	Delta string `json:"delta"`
+}
