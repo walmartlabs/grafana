@@ -485,7 +485,7 @@ func RestoreDashboardVersion(c *middleware.Context, cmd m.RestoreDashboardVersio
 	return Json(200, util.DynMap{
 		"message": "Dashboard restored!",
 		"version": cmd.Version,
-		"data":    cmd.Result.Data,
+		"data":    cmd.Result,
 	})
 }
 
