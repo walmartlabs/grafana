@@ -47,7 +47,7 @@ export class AuditLogCtrl {
   getDiff() {
     this.mode = 'compare';
     return this.auditSrv.compareVersions(this.dashboard, this.compare).then(response => {
-      this.delta = response.delta;
+      this.delta = response;
     });
   }
 
