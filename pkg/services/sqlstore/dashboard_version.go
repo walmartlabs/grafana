@@ -148,7 +148,7 @@ func RestoreDashboardVersion(cmd *m.RestoreDashboardVersionCommand) error {
 			return m.ErrDashboardNotFound
 		}
 
-		cmd.Result = dashVersion
+		cmd.Result = dashboard
 		return nil
 	})
 }

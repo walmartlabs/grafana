@@ -79,6 +79,7 @@ func GetDashboard(c *middleware.Context) {
 		},
 	}
 
+	// TODO(ben): copy this performance metrics logic for the new API endpoints added
 	c.TimeRequest(metrics.M_Api_Dashboard_Get)
 	c.JSON(200, dto)
 }
@@ -482,10 +483,44 @@ func RestoreDashboardVersion(c *middleware.Context, cmd m.RestoreDashboardVersio
 		})
 	}
 
+	isStarred, err := isDashboardStarredByUser(c, cmd.Result.Id)
+	if err != nil {
+		return Json(500, util.DynMap{
+			"message": "Error while checking if dashboard was starred by user",
+			"status":  err.Error(),
+		})
+	}
+
+	// Finding creator and last updater of the dashboard
+	updater, creator := "Anonymous", "Anonymous"
+	if cmd.Result.UpdatedBy > 0 {
+		updater = getUserLogin(cmd.Result.UpdatedBy)
+	}
+	if cmd.Result.CreatedBy > 0 {
+		creator = getUserLogin(cmd.Result.CreatedBy)
+	}
+
+	dto := dtos.DashboardFullWithMeta{
+		Dashboard: cmd.Result.Data,
+		Meta: dtos.DashboardMeta{
+			IsStarred: isStarred,
+			Slug:      cmd.Result.Slug,
+			Type:      m.DashTypeDB,
+			CanStar:   c.IsSignedIn,
+			CanSave:   c.OrgRole == m.ROLE_ADMIN || c.OrgRole == m.ROLE_EDITOR,
+			CanEdit:   canEditDashboard(c.OrgRole),
+			Created:   cmd.Result.Created,
+			Updated:   cmd.Result.Updated,
+			UpdatedBy: updater,
+			CreatedBy: creator,
+			Version:   cmd.Result.Version,
+		},
+	}
+
 	return Json(200, util.DynMap{
-		"message": "Dashboard restored!",
-		"version": cmd.Version,
-		"data":    cmd.Result,
+		"message":   fmt.Sprintf("Dashboard restored to version %d", cmd.Result.Version),
+		"version":   cmd.Result.Version,
+		"dashboard": dto,
 	})
 }
 
