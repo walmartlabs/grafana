@@ -148,10 +148,24 @@ func RestoreDashboardVersion(cmd *m.RestoreDashboardVersionCommand) error {
 			return m.ErrDashboardNotFound
 		}
 
-		cmd.Result = dashVersion
+		cmd.Result = dashboard
 		return nil
 	})
 }
+
+// func getDashboardById(id int64) (*m.Dashboard, error) {
+// 	dashboard := m.Dashboard{Id: id}
+// 	has, err := x.Get(&dashboard)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	if !has {
+// 		return nil, m.ErrDashboardNotFound
+// 	}
+
+// 	dashboard.Data.Set("id", dashboard.Id)
+// 	return &dashboard, nil
+// }
 
 // func RestoreDeletedDashboard(cmd *m.) error {
 

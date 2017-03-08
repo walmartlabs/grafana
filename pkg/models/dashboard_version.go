@@ -76,7 +76,7 @@ type RestoreDashboardVersionCommand struct {
 	Version     int   `json:"version" binding:"Required"`
 	UserId      int64 `json:"-"`
 
-	Result *DashboardVersion
+	Result *Dashboard
 }
 
 // CompareDashboardVersionsCommand is used to compare two versions.
