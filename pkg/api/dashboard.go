@@ -518,7 +518,7 @@ func RestoreDashboardVersion(c *middleware.Context, cmd m.RestoreDashboardVersio
 	}
 
 	return Json(200, util.DynMap{
-		"message":   "Dashboard restored!",
+		"message":   fmt.Sprintf("Dashboard restored to version %d", cmd.Result.Version),
 		"version":   cmd.Result.Version,
 		"dashboard": dto,
 	})
