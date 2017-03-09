@@ -383,6 +383,12 @@
 			"revisionTime": "2016-08-23T18:01:44Z"
 		},
 		{
+			"checksumSHA1": "r7o16T0WQ/XSe2mlQuioMi8gxbw=",
+			"path": "github.com/yudai/gojsondiff",
+			"revision": "9209d1532c51cabe0439993586a71c207b09a0ac",
+			"revisionTime": "2017-02-27T22:09:00Z"
+		},
+		{
 			"checksumSHA1": "WHc3uByvGaMcnSoI21fhzYgbOgg=",
 			"path": "golang.org/x/net/context/ctxhttp",
 			"revision": "71a035914f99bb58fe82eac0f1289f10963d876c",
