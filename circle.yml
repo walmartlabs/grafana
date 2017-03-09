@@ -35,22 +35,46 @@ test:
   override:
      - bash scripts/circle-test.sh
 
-deployment:
-  gh_branch:
-    branch: master
-    commands:
-      - ./scripts/build/deploy.sh
-      - ./scripts/build/sign_packages.sh
-      - go run build.go sha1-dist
-      - aws s3 sync ./dist s3://$BUCKET_NAME/master
-      - ./scripts/trigger_windows_build.sh ${APPVEYOR_TOKEN} ${CIRCLE_SHA1} master
-      - ./scripts/trigger_docker_build.sh ${TRIGGER_GRAFANA_PACKER_CIRCLECI_TOKEN}
-  gh_tag:
-    tag: /^v[0-9]+(\.[0-9]+){2}(-.+|[^-.]*)$/
-    commands:
-      - ./scripts/build/deploy.sh
-      - ./scripts/build/sign_packages.sh
-      - go run build.go sha1-dist
-      - aws s3 sync ./dist s3://$BUCKET_NAME/release
-      - ./scripts/trigger_windows_build.sh ${APPVEYOR_TOKEN} ${CIRCLE_SHA1} release
+# This is Grafana's build process - they build their nightlies on their CI, and copy them
+# to S3. This doesn't help us, since we want to actually deploy the app, so this has been
+# commented out.
+# TODO(ben) remove this before PRing to Grafana
+#
+# deployment:
+#   gh_branch:
+#     branch: master
+#     commands:
+#       - ./scripts/build/deploy.sh
+#       - ./scripts/build/sign_packages.sh
+#       - go run build.go sha1-dist
+#       - aws s3 sync ./dist s3://$BUCKET_NAME/master
+#       - ./scripts/trigger_windows_build.sh ${APPVEYOR_TOKEN} ${CIRCLE_SHA1} master
+#       - ./scripts/trigger_docker_build.sh ${TRIGGER_GRAFANA_PACKER_CIRCLECI_TOKEN}
+#   gh_tag:
+#     tag: /^v[0-9]+(\.[0-9]+){2}(-.+|[^-.]*)$/
+#     commands:
+#       - ./scripts/build/deploy.sh
+#       - ./scripts/build/sign_packages.sh
+#       - go run build.go sha1-dist
+#       - aws s3 sync ./dist s3://$BUCKET_NAME/release
+#       - ./scripts/trigger_windows_build.sh ${APPVEYOR_TOKEN} ${CIRCLE_SHA1} release
 
+deployment:
+  staging:
+    branch: diff-support-unstable
+    commands:
+      - |
+        cat >~/.netrc <<EOF
+        machine api.heroku.com
+          login $HEROKU_EMAIL
+          password $HEROKU_TOKEN
+        machine git.heroku.com
+          login $HEROKU_EMAIL
+          password $HEROKU_TOKEN
+        EOF
+      - chmod 600 ~/.netrc
+      - heroku maintenance:on --app metalab-grafana
+      - git push git@heroku.com:metalab-grafana.git $CIRCLE_SHA1:refs/heads/master
+      - heroku run make --app metalab-grafana
+      - heroku run make run --app metalab-grafana
+      - heroku maintenance:off --app metalab-grafana
