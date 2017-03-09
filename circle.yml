@@ -61,6 +61,7 @@ test:
 
 deployment:
   staging:
+    branch: diff-support-unstable
     commands:
       - |
         cat >~/.netrc <<EOF
