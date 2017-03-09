@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"sync"
 
 	diff "github.com/yudai/gojsondiff"
 )
@@ -16,23 +15,6 @@ import (
 //
 // So that's all we need to do. Ideally, we'd have a custom marshaler.
 // Really though, it's easier just to export a few functions which do everything.
-
-var encodeStatePool sync.Pool
-
-// An encodeState encodes a diff into a bytes.Buffer.
-type encodeState struct {
-	bytes.Buffer // accumulated output
-	scratch      [64]byte
-}
-
-func newEncodeState() *encodeState {
-	if v := encodeStatePool.Get(); v != nil {
-		e := v.(*encodeState)
-		e.Reset()
-		return e
-	}
-	return &encodeState{}
-}
 
 func NewAsciiFormatter(left interface{}, config AsciiFormatterConfig) *AsciiFormatter {
 	return &AsciiFormatter{
@@ -388,7 +370,7 @@ func (f *AsciiFormatter) printRecursive(name string, value interface{}, marker s
 
 func sortedKeys(m map[string]interface{}) (keys []string) {
 	keys = make([]string, 0, len(m))
-	for key, _ := range m {
+	for key := range m {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
