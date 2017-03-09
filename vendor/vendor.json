@@ -347,6 +347,12 @@
 			"revisionTime": "2016-09-17T18:44:01Z"
 		},
 		{
+			"checksumSHA1": "iWCtyR1TkJ22Bi/ygzfKDvOQdQY=",
+			"path": "github.com/sergi/go-diff/diffmatchpatch",
+			"revision": "24e2351369ec4949b2ed0dc5c477afdd4c4034e8",
+			"revisionTime": "2017-01-18T13:12:30Z"
+		},
+		{
 			"checksumSHA1": "6AYg4fjEvFuAVN3wHakGApjhZAM=",
 			"path": "github.com/smartystreets/assertions",
 			"revision": "2063fd1cc7c975db70502811a34b06ad034ccdf2",
@@ -387,6 +393,18 @@
 			"path": "github.com/yudai/gojsondiff",
 			"revision": "9209d1532c51cabe0439993586a71c207b09a0ac",
 			"revisionTime": "2017-02-27T22:09:00Z"
+		},
+		{
+			"checksumSHA1": "7/V6fDOOfkmSHQahCK+J5G4Y1uk=",
+			"path": "github.com/yudai/gojsondiff/formatter",
+			"revision": "9209d1532c51cabe0439993586a71c207b09a0ac",
+			"revisionTime": "2017-02-27T22:09:00Z"
+		},
+		{
+			"checksumSHA1": "OCkp7qxxdxjpoM3T6Q3CTiMP5kM=",
+			"path": "github.com/yudai/golcs",
+			"revision": "d1c525dea8ce39ea9a783d33cf08932305373f2c",
+			"revisionTime": "2015-04-05T16:34:35Z"
 		},
 		{
 			"checksumSHA1": "WHc3uByvGaMcnSoI21fhzYgbOgg=",
