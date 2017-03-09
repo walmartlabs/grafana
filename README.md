@@ -1,4 +1,4 @@
-# MetaLab × Walmart × Grafana
+# MetaLab × Walmart × Grafana [![CircleCI](https://circleci.com/gh/metalabdesign/grafana/tree/diff-support-unstable.svg?style=svg&circle-token=1d26e5675fb5a3e5a137d7748f4978e2c9f3e117)](https://circleci.com/gh/metalabdesign/grafana/tree/diff-support-unstable)
 
 Our private fork of Grafana.
 
