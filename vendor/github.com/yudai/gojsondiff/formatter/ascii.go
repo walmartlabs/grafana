@@ -9,13 +9,6 @@ import (
 	diff "github.com/yudai/gojsondiff"
 )
 
-// A formatter only needs to satisfy the `Format` method, which has the definition,
-//
-//		Format(diff diff.Diff) (result string, err error)
-//
-// So that's all we need to do. Ideally, we'd have a custom marshaler.
-// Really though, it's easier just to export a few functions which do everything.
-
 func NewAsciiFormatter(left interface{}, config AsciiFormatterConfig) *AsciiFormatter {
 	return &AsciiFormatter{
 		left:   left,
@@ -234,8 +227,8 @@ const (
 )
 
 var AsciiStyles = map[string]string{
-	AsciiAdded:   "diff-added",
-	AsciiDeleted: "diff-deleted",
+	AsciiAdded:   "30;42",
+	AsciiDeleted: "30;41",
 }
 
 func (f *AsciiFormatter) push(name string, size int, array bool) {
@@ -270,7 +263,7 @@ func (f *AsciiFormatter) newLine(marker string) {
 func (f *AsciiFormatter) closeLine() {
 	style, ok := AsciiStyles[f.line.marker]
 	if f.config.Coloring && ok {
-		f.buffer.WriteString(`<span class="` + style + `">`)
+		f.buffer.WriteString("\x1b[" + style + "m")
 	}
 
 	f.buffer.WriteString(f.line.marker)
@@ -280,10 +273,9 @@ func (f *AsciiFormatter) closeLine() {
 	f.buffer.Write(f.line.buffer.Bytes())
 
 	if f.config.Coloring && ok {
-		f.buffer.WriteString(`</span>`)
+		f.buffer.WriteString("\x1b[0m")
 	}
 
-	// prob don't need
 	f.buffer.WriteRune('\n')
 }
 
@@ -370,7 +362,7 @@ func (f *AsciiFormatter) printRecursive(name string, value interface{}, marker s
 
 func sortedKeys(m map[string]interface{}) (keys []string) {
 	keys = make([]string, 0, len(m))
-	for key := range m {
+	for key, _ := range m {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
