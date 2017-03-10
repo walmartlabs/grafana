@@ -63,18 +63,4 @@ deployment:
   staging:
     branch: diff-support-unstable
     commands:
-      - |
-        cat > /home/ubuntu/.netrc <<EOF
-        machine api.heroku.com
-          login $HEROKU_EMAIL
-          password $HEROKU_TOKEN
-        machine git.heroku.com
-          login $HEROKU_EMAIL
-          password $HEROKU_TOKEN
-        EOF
-      - chmod 600 /home/ubuntu/.netrc
-      - heroku maintenance:on --app metalab-grafana
-      - git push git@heroku.com:metalab-grafana.git $CIRCLE_SHA1:refs/heads/master
-      - heroku run make --app metalab-grafana
-      - heroku run make run --app metalab-grafana
-      - heroku maintenance:off --app metalab-grafana
+      - ./scripts/deploy_ec2.sh
