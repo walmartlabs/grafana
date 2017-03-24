@@ -27,6 +27,7 @@ export class AuditLogCtrl {
 
   /** @ngInject */
   constructor(private $scope,
+              private $rootScope,
               private $window,
               private contextSrv,
               private auditSrv) {
@@ -66,7 +67,9 @@ export class AuditLogCtrl {
   getLog() {
     this.loading = true;
     return this.auditSrv.getAuditLog(this.dashboard).then(revisions => {
-      this.revisions = revisions.reverse();
+      this.revisions = _.orderBy(revisions, rev => rev.version, 'desc');
+    }).catch(err => {
+      this.$rootScope.appEvent('alert-error', ['There was an error fetching the audit log', (err.message || err)]);
     }).finally(() => { this.loading = false; });
   }
 
