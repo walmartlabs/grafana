@@ -96,33 +96,37 @@ export class AuditLogCtrl {
   }
 
   restore(version: number) {
-    this.$scope.appEvent('confirm-modal', {
+    this.$rootScope.appEvent('confirm-modal', {
       title: 'Restore',
       text: 'Do you want to restore this dashboard?',
       text2: `The dashboard will be restored to version ${version}. All unsaved changes will be lost.`,
       icon: 'fa-rotate-right',
       yesText: 'Restore',
-      onConfirm: () => {
-        this.loading = true;
-        return this.auditSrv.restoreDashboard(this.dashboard, version).then(response => {
-          this.revisions.unshift({
-            id: this.revisions[0].id + 1,
-            dashboardId: this.dashboard.id,
-            parentVersion: version,
-            version: this.revisions[0].version + 1,
-            created: new Date(),
-            createdBy: this.contextSrv.user.name,
-            message: '',
-          });
-
-          this.reset();
-          const restoredData = response.dashboard;
-          this.dashboard = restoredData.dashboard;
-          this.dashboard.meta = restoredData.meta;
-          this.$scope.setupDashboard(restoredData);
-        }).finally(() => { this.loading = false; });
-      }
+      onConfirm: this.restoreConfirm.bind(this, version),
     });
+  }
+
+  restoreConfirm(version: number) {
+    this.loading = true;
+    return this.auditSrv.restoreDashboard(this.dashboard, version).then(response => {
+      this.revisions.unshift({
+        id: this.revisions[0].id + 1,
+        dashboardId: this.dashboard.id,
+        parentVersion: version,
+        version: this.revisions[0].version + 1,
+        created: new Date(),
+        createdBy: this.contextSrv.user.name,
+        message: '',
+      });
+
+      this.reset();
+      const restoredData = response.dashboard;
+      this.dashboard = restoredData.dashboard;
+      this.dashboard.meta = restoredData.meta;
+      this.$scope.setupDashboard(restoredData);
+    }).catch(err => {
+      this.$rootScope.appEvent('alert-error', ['There was an error restoring the dashboard', (err.message || err)]);
+    }).finally(() => { this.loading = false; });
   }
 }
 
