@@ -112,7 +112,14 @@ describe('AuditLogCtrl', function() {
     });
 
     it('should check that two valid versions are selected', function() {
-      // TODO: test isComparable
+      // { original: null, new: null }
+      expect(ctx.ctrl.isComparable()).to.be(false);
+
+      ctx.ctrl.compare = { original: 6, new: 4 };
+      expect(ctx.ctrl.isComparable()).to.be(true);
+
+      ctx.ctrl.compare = { original: 2, new: 1 };
+      expect(ctx.ctrl.isComparable()).to.be(false);
     });
 
     describe('and the diff is successfully fetched', function() {
@@ -164,6 +171,79 @@ describe('AuditLogCtrl', function() {
       it('should have an empty delta/changeset', function() {
         expect(ctx.ctrl.delta).to.be(null);
       });
+    });
+  });
+
+  describe('when the user wants to restore a revision', function() {
+    var deferred;
+    var auditSrv: any = {};
+    var $rootScope: any = {};
+
+    beforeEach(angularMocks.inject(($controller, $q) => {
+      deferred = $q.defer();
+      auditSrv.getAuditLog = sinon.stub().returns($q.when(versionsResponse));
+      auditSrv.restoreDashboard = sinon.stub().returns(deferred.promise);
+      $rootScope.appEvent = sinon.spy();
+      ctx.ctrl = $controller(AuditLogCtrl, {
+        auditSrv,
+        contextSrv: { user: { name: 'Carlos' }},
+        $rootScope,
+        $scope: ctx.scope,
+      });
+      ctx.ctrl.dashboard = { id: 1 };
+      ctx.ctrl.restore();
+      ctx.ctrl.$scope.$apply();
+    }));
+
+    it('should display a modal allowing the user to restore or cancel', function() {
+      expect($rootScope.appEvent.calledOnce).to.be(true);
+      expect($rootScope.appEvent.calledWith('confirm-modal')).to.be(true);
+    });
+
+    describe('and restore is selected and successful', function() {
+      beforeEach(function() {
+        deferred.resolve(restoreResponse);
+        ctx.ctrl.restoreConfirm(4);
+        ctx.ctrl.$scope.$apply();
+      });
+
+      it('should indicate loading has finished', function() {
+        expect(ctx.ctrl.loading).to.be(false);
+      });
+
+      it('should add an entry for the restored revision to the audit log', function() {
+        expect(ctx.ctrl.revisions.length).to.be(4);
+      });
+
+      describe('the restored revision', function() {
+        it('should have its id and version numbers incremented', function() {
+          expect(ctx.ctrl.revisions[0].id).to.be(4);
+          expect(ctx.ctrl.revisions[0].version).to.be(7);
+        });
+
+        // TODO: assert post-confirm state/behaviours
+      });
+    });
+
+    describe('and restore fails to fetch', function() {
+      beforeEach(function() {
+        deferred.reject(new Error('RestoreError'));
+        ctx.ctrl.restoreConfirm();
+        ctx.ctrl.$scope.$apply();
+      });
+
+      it('should indicate loading has finished', function() {
+        expect(ctx.ctrl.loading).to.be(false);
+      });
+
+      it('should broadcast an event indicating the failure', function() {
+        expect($rootScope.appEvent.callCount).to.be(2);
+        expect($rootScope.appEvent.getCall(0).calledWith('confirm-modal')).to.be(true);
+        expect($rootScope.appEvent.getCall(1).calledWith('alert-error')).to.be(true);
+        expect($rootScope.appEvent.getCall(1).args[1][0]).to.be('There was an error restoring the dashboard');
+      });
+
+      // TODO: test state after failure i.e. do we hide the modal or keep it visible
     });
   });
 });
