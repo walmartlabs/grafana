@@ -61,6 +61,9 @@ export class AuditLogCtrl {
     this.loading = true;
     return this.auditSrv.compareVersions(this.dashboard, this.compare).then(response => {
       this.delta = response;
+    }).catch(err => {
+      this.mode = 'list';
+      this.$rootScope.appEvent('alert-error', ['There was an error fetching the diff', (err.message || err)]);
     }).finally(() => { this.loading = false; });
   }
 
