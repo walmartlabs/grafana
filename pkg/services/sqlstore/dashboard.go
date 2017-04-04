@@ -99,7 +99,7 @@ func SaveDashboard(cmd *m.SaveDashboardCommand) error {
 			Version:       dash.Version,
 			Created:       time.Now(),
 			CreatedBy:     dash.UpdatedBy,
-			Message:       "",
+			Message:       cmd.Message,
 			Data:          dash.Data,
 		}
 		affectedRows, err = sess.Insert(dashVersion)
@@ -260,6 +260,7 @@ func DeleteDashboard(cmd *m.DeleteDashboardCommand) error {
 			"DELETE FROM star WHERE dashboard_id = ? ",
 			"DELETE FROM dashboard WHERE id = ?",
 			"DELETE FROM playlist_item WHERE type = 'dashboard_by_id' AND value = ?",
+			"DELETE FROM dashboard_version WHERE dashboard_id = ?",
 		}
 
 		for _, sql := range deletes {

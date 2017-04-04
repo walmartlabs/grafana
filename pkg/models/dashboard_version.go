@@ -63,7 +63,7 @@ type GetDashboardVersionCommand struct {
 }
 
 // GetDashboardVersionsCommand contains the data required to execute the
-// sqlstore.GetDashboardVersionsCommand, which returns all
+// sqlstore.GetDashboardVersionsCommand, which returns all dashboard versions.
 type GetDashboardVersionsCommand struct {
 	DashboardId int64  `json:"dashboardId" binding:"Required"`
 	OrderBy     string `json:"orderBy"`
