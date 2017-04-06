@@ -53,8 +53,8 @@ describe('auditSrv', function() {
 
   describe('compareVersions', function() {
     it('should return a diff object for the given dashboard revisions', function(done) {
-      var compare = { original: 5, new: 7 };
-      ctx.service.compareVersions({ id: 1 }, compare).then(function(response) {
+      var selected = [6, 4];
+      ctx.service.compareVersions({ id: 1 }, selected).then(function(response) {
         expect(response).to.eql(compareResponse);
         done();
       });
@@ -62,8 +62,8 @@ describe('auditSrv', function() {
     });
 
     it('should return an empty object when not given an id', function(done) {
-      var compare = { original: 5, new: 7 };
-      ctx.service.compareVersions({ }, compare).then(function(response) {
+      var selected = [6, 4];
+      ctx.service.compareVersions({ }, selected).then(function(response) {
         expect(response).to.eql({});
         done();
       });

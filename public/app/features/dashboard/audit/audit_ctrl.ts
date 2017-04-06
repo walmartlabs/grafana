@@ -9,6 +9,7 @@ import {DashboardModel} from '../model';
 
 export interface RevisionsModel {
   id: number;
+  checked: boolean;
   dashboardId: number;
   parentVersion: number;
   version: number;
@@ -18,12 +19,13 @@ export interface RevisionsModel {
 }
 
 export class AuditLogCtrl {
-  compare: { original: number; new: number; };
   dashboard: DashboardModel;
   delta: any;
+  limit: number;
   loading: boolean;
   mode: string;
   revisions: RevisionsModel[];
+  selected: number[];
 
   /** @ngInject */
   constructor(private $scope,
@@ -35,6 +37,8 @@ export class AuditLogCtrl {
 
     this.dashboard = $scope.dashboard;
     this.mode = 'list';
+    this.limit = 2;
+    this.selected = [];
     this.loading = false;
 
     this.resetFromSource();
@@ -45,6 +49,18 @@ export class AuditLogCtrl {
         this.reset();
       }
     });
+  }
+
+  compareRevisionStateChanged(revision: any) {
+    if (revision.checked) {
+      this.selected.push(revision.version);
+    } else {
+      _.remove(this.selected, version => version === revision.version);
+    }
+  }
+
+  compareRevisionDisabled(checked: boolean) {
+    return this.selected.length === this.limit && !checked;
   }
 
   formatDate(date) {
@@ -59,7 +75,7 @@ export class AuditLogCtrl {
   getDiff() {
     this.mode = 'compare';
     this.loading = true;
-    return this.auditSrv.compareVersions(this.dashboard, this.compare).then(response => {
+    return this.auditSrv.compareVersions(this.dashboard, this.selected).then(response => {
       this.delta = response;
     }).catch(err => {
       this.mode = 'list';
@@ -70,24 +86,28 @@ export class AuditLogCtrl {
   getLog() {
     this.loading = true;
     return this.auditSrv.getAuditLog(this.dashboard).then(revisions => {
-      this.revisions = _.orderBy(revisions, rev => rev.version, 'desc');
+      this.revisions = _.flow(
+        _.partial(_.orderBy, _, rev => rev.version, 'desc'),
+        _.partialRight(_.map, rev => _.extend({}, rev, { checked: false })),
+      )(revisions);
     }).catch(err => {
       this.$rootScope.appEvent('alert-error', ['There was an error fetching the audit log', (err.message || err)]);
     }).finally(() => { this.loading = false; });
   }
 
   isComparable() {
-    const c = this.compare;
-    const areNumbers = _.isNumber(c.original) && _.isNumber(c.new);
+    const isParamLength = this.selected.length === 2;
+    const areNumbers = this.selected.every(version => _.isNumber(version));
     const areValidVersions = _.filter(this.revisions, revision => {
-      return revision.version === c.original || revision.version === c.new;
+      return revision.version === this.selected[0] || revision.version === this.selected[1];
     }).length === 2;
-    return areNumbers && areValidVersions;
+    return isParamLength && areNumbers && areValidVersions;
   }
 
   reset() {
     this.delta = null;
-    this.compare = { original: null, new: null };
+    this.selected = [];
+    this.revisions = _.map(this.revisions, rev => _.extend({}, rev, { checked: false }));
   }
 
   resetFromSource() {
@@ -111,6 +131,7 @@ export class AuditLogCtrl {
     return this.auditSrv.restoreDashboard(this.dashboard, version).then(response => {
       this.revisions.unshift({
         id: this.revisions[0].id + 1,
+        checked: false,
         dashboardId: this.dashboard.id,
         parentVersion: version,
         version: this.revisions[0].version + 1,
