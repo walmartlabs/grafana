@@ -267,8 +267,22 @@ func GetDashboardVersions(c *middleware.Context) {
 		return
 	}
 
+	// TODO(ben) the orderBy arg should be split into snake_case?
+	orderBy := c.Query("orderBy")
+	limit := c.QueryInt("limit")
+	start := c.QueryInt("start")
+	if orderBy == "" {
+		orderBy = "version"
+	}
+	if limit == 0 {
+		limit = 1000
+	}
+
 	query := m.GetDashboardVersionsCommand{
 		DashboardId: int64(dashboardId),
+		OrderBy:     orderBy,
+		Limit:       limit,
+		Start:       start,
 	}
 
 	if err := bus.Dispatch(&query); err != nil {
