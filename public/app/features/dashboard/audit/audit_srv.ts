@@ -15,9 +15,9 @@ export class AuditSrv {
     return id ? this.backendSrv.get(`api/dashboards/db/${id}/versions`) : this.$q.when([]);
   }
 
-  compareVersions(dashboard: DashboardModel, compare: { original: number; new: number; }) {
+  compareVersions(dashboard: DashboardModel, selected: [number, number]) {
     const id = dashboard && dashboard.id ? dashboard.id : void 0;
-    const url = `api/dashboards/db/${id}/compare/${compare.original}...${compare.new}/html`;
+    const url = `api/dashboards/db/${id}/compare/${_.min(selected)}...${_.max(selected)}/html`;
     return id ? this.backendSrv.get(url) : this.$q.when({});
   }
 

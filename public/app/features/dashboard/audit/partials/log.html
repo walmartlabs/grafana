@@ -1,13 +1,13 @@
 <div ng-controller="AuditLogCtrl">
 	<div class="tabbed-view-header">
 		<h2 class="tabbed-view-title">
-			Audit
+			Changelog
 		</h2>
 
 		<ul class="gf-tabs">
 			<li class="gf-tabs-item" >
 				<a class="gf-tabs-link" ng-click="ctrl.mode = 'list';" ng-class="{active: ctrl.mode === 'list'}">
-					Log
+					List
 				</a>
 			</li>
 			<li class="gf-tabs-item" ng-show="ctrl.mode === 'compare'">
@@ -33,31 +33,38 @@
 					<em>No revisions to compare</em>
 				</div>
 
-				<div class="gf-form" ng-if="ctrl.revisions.length > 0">
+				<div class="audit-table gf-form" ng-if="ctrl.revisions.length > 0">
 					<div class="gf-form-group">
 						<table class="filter-table">
 							<thead>
 								<tr>
 									<th class="width-4"></th>
-									<th class="width-4"></th>
-									<th class="width-6">Version</th>
+									<th class="width-4">Version</th>
 									<th class="width-14">Date</th>
-									<th class="width-10">Created By</th>
 									<th class="width-10">Updated By</th>
+									<th class="width-30">Notes</th>
 									<th></th>
 								</tr>
 							</thead>
 							<tbody>
 								<tr ng-repeat="revision in ctrl.revisions">
-									<td><input type="radio" ng-model="ctrl.compare.original" ng-value="revision.version"></td>
-									<td><input type="radio" ng-model="ctrl.compare.new" ng-value="revision.version"></td>
+									<td>
+										<gf-form-switch
+											checked="revision.checked"
+											on-change="ctrl.compareRevisionStateChanged(revision)"
+                      ng-disabled="ctrl.compareRevisionDisabled(revision.checked)">
+										</gf-form-switch>
+									</td>
 									<td>{{revision.version}}</td>
 									<td>{{ctrl.formatDate(revision.created)}}</td>
-									<td>{{ctrl.dashboard.meta.createdBy}}</td>
 									<td>{{revision.createdBy}}</td>
+									<td>{{revision.message}}</td>
 									<td class="text-right">
 										<a class="btn btn-inverse btn-small" ng-show="revision.version !== ctrl.dashboard.version" ng-click="ctrl.restore(revision.version)">
-											<i class="fa fa-rotate-right"></i>&nbsp;&nbsp;Restore this version
+											<i class="fa fa-rotate-right"></i>&nbsp;&nbsp;Restore
+										</a>
+										<a class="btn btn-outline-disabled btn-small" ng-show="revision.version === ctrl.dashboard.version">
+											<i class="fa fa-check"></i>&nbsp;&nbsp;Current
 										</a>
 									</td>
 								</tr>
@@ -65,8 +72,8 @@
 						</table>
 						<div class="gf-form-group" ng-show="ctrl.mode === 'list' && ctrl.revisions.length > 0">
 							<div class="gf-form-button-row">
-								<a type="button" class="btn gf-form-button btn-success" ng-class="{disabled: !ctrl.isComparable()}" ng-click="ctrl.getDiff();" ng-disabled="!ctrl.isComparable()">
-									<i class="fa fa-copy" ></i>&nbsp;&nbsp;Compare
+								<a type="button" class="btn gf-form-button btn-primary" ng-class="{disabled: !ctrl.isComparable()}" ng-click="ctrl.getDiff();" ng-disabled="!ctrl.isComparable()">
+									<i class="fa fa-code-fork" ></i>&nbsp;&nbsp;Compare versions
 								</a>
 							</div>
 						</div>

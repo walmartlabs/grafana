@@ -1,5 +1,6 @@
 import {describe, beforeEach, it, sinon, expect, angularMocks} from 'test/lib/common';
 
+import _ from 'lodash';
 import {AuditLogCtrl} from 'app/features/dashboard/audit/audit_ctrl';
 import { versions, compare, restore } from 'test/mocks/audit-mocks';
 import config from 'app/core/config';
@@ -45,8 +46,8 @@ describe('AuditLogCtrl', function() {
       it('should reset the controller\'s state', function() {
         expect(ctx.ctrl.mode).to.be('list');
         expect(ctx.ctrl.delta).to.be(null);
-        expect(ctx.ctrl.compare.original).to.be(null);
-        expect(ctx.ctrl.compare.new).to.be(null);
+        expect(ctx.ctrl.selected.length).to.be(0);
+        expect(ctx.ctrl.selected).to.eql([]);
       });
 
       it('should indicate loading has finished', function() {
@@ -57,6 +58,19 @@ describe('AuditLogCtrl', function() {
         expect(ctx.ctrl.revisions[0].version).to.be(6);
         expect(ctx.ctrl.revisions[1].version).to.be(5);
         expect(ctx.ctrl.revisions[2].version).to.be(4);
+      });
+
+      it('should add a checked property to each revision', function() {
+        var actual = _.filter(ctx.ctrl.revisions, rev => rev.hasOwnProperty('checked'));
+        expect(actual.length).to.be(3);
+      });
+
+      it('should set all checked properties to false on reset', function() {
+        ctx.ctrl.revisions[0].checked = true;
+        ctx.ctrl.revisions[2].checked = true;
+        ctx.ctrl.reset();
+        var actual = _.filter(ctx.ctrl.revisions, rev => !rev.checked);
+        expect(actual.length).to.be(3);
       });
     });
 
@@ -69,8 +83,8 @@ describe('AuditLogCtrl', function() {
       it('should reset the controller\'s state', function() {
         expect(ctx.ctrl.mode).to.be('list');
         expect(ctx.ctrl.delta).to.be(null);
-        expect(ctx.ctrl.compare.original).to.be(null);
-        expect(ctx.ctrl.compare.new).to.be(null);
+        expect(ctx.ctrl.selected.length).to.be(0);
+        expect(ctx.ctrl.selected).to.eql([]);
       });
 
       it('should indicate loading has finished', function() {
@@ -112,13 +126,16 @@ describe('AuditLogCtrl', function() {
     });
 
     it('should check that two valid versions are selected', function() {
-      // { original: null, new: null }
+      // []
       expect(ctx.ctrl.isComparable()).to.be(false);
 
-      ctx.ctrl.compare = { original: 6, new: 4 };
+      ctx.ctrl.selected = [6];
+      expect(ctx.ctrl.isComparable()).to.be(false);
+
+      ctx.ctrl.selected = [6, 4];
       expect(ctx.ctrl.isComparable()).to.be(true);
 
-      ctx.ctrl.compare = { original: 2, new: 1 };
+      ctx.ctrl.selected = [2, 1];
       expect(ctx.ctrl.isComparable()).to.be(false);
     });
 
