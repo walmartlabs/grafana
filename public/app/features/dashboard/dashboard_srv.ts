@@ -32,71 +32,7 @@ export class DashboardSrv {
       return this.saveDashboardAs();
     }
 
-    var clone = this.dash.getSaveModelClone();
-
-    return this.backendSrv.saveDashboard(clone, options).then(data => {
-      this.dash.version = data.version;
-
-      this.$rootScope.appEvent('dashboard-saved', this.dash);
-
-      var dashboardUrl = '/dashboard/db/' + data.slug;
-      if (dashboardUrl !== this.$location.path()) {
-        this.$location.url(dashboardUrl);
-      }
-
-      this.$rootScope.appEvent('alert-success', ['Dashboard saved', 'Saved as ' + clone.title]);
-    }).catch(this.handleSaveDashboardError.bind(this));
-  }
-
-  handleSaveDashboardError(err) {
-    if (err.data && err.data.status === "version-mismatch") {
-      err.isHandled = true;
-
-      this.$rootScope.appEvent('confirm-modal', {
-        title: 'Conflict',
-        text: 'Someone else has updated this dashboard.',
-        text2: 'Would you still like to save this dashboard?',
-        yesText: "Save & Overwrite",
-        icon: "fa-warning",
-        onConfirm: () => {
-          this.saveDashboard({overwrite: true});
-        }
-      });
-    }
-
-    if (err.data && err.data.status === "name-exists") {
-      err.isHandled = true;
-
-      this.$rootScope.appEvent('confirm-modal', {
-        title: 'Conflict',
-        text: 'Dashboard with the same name exists.',
-        text2: 'Would you still like to save this dashboard?',
-        yesText: "Save & Overwrite",
-        icon: "fa-warning",
-        onConfirm: () => {
-          this.saveDashboard({overwrite: true});
-        }
-      });
-    }
-
-    if (err.data && err.data.status === "plugin-dashboard") {
-      err.isHandled = true;
-
-      this.$rootScope.appEvent('confirm-modal', {
-        title: 'Plugin Dashboard',
-        text: err.data.message,
-        text2: 'Your changes will be lost when you update the plugin. Use Save As to create custom version.',
-        yesText: "Overwrite",
-        icon: "fa-warning",
-        altActionText: "Save As",
-        onAltAction: () => {
-          this.saveDashboardAs();
-        },
-        onConfirm: () => {
-          this.saveDashboard({overwrite: true});
-        }
-      });
-    }
+    return this.saveDashboardMessage();
   }
 
   saveDashboardAs() {
@@ -112,6 +48,16 @@ export class DashboardSrv {
     });
   }
 
+  saveDashboardMessage() {
+    var newScope = this.$rootScope.$new();
+    newScope.clone = this.dash.getSaveModelClone();
+
+    this.$rootScope.appEvent('show-modal', {
+      src: 'public/app/features/dashboard/partials/saveDashboardMessage.html',
+      scope: newScope,
+      modalClass: 'modal--narrow'
+    });
+  }
 }
 
 coreModule.service('dashboardSrv', DashboardSrv);
