@@ -1,0 +1,28 @@
+<div class="modal-body" ng-controller="SaveDashboardMessageCtrl" ng-init="init();">
+	<div class="modal-header">
+		<h2 class="modal-header-title">
+			<i class="fa fa-save"></i>
+			<span class="p-l-1">Save to changelog</span>
+		</h2>
+
+		<a class="modal-header-close" ng-click="dismiss();">
+			<i class="fa fa-remove"></i>
+		</a>
+	</div>
+
+	<div class="modal-content">
+		<h6 class="text-center">Add a note to describe the changes in this version</h6>
+		<div class="p-t-2">
+			<div class="gf-form">
+				<input type="text" class="gf-form-input" ng-model="clone.message" give-focus="true" ng-keydown="keyDown($event)">
+			</div>
+		</div>
+
+		<div class="gf-form-button-row text-center">
+			<a class="btn btn-success" ng-click="saveVersion();">Save to changelog</a>
+			<a class="btn btn-inverse" ng-click="dismiss();">Cancel</a>
+		</div>
+	</div>
+</div>
+
+
