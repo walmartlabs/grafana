@@ -25,9 +25,12 @@ export class AuditLogCtrl {
   diff: string;
   limit: number;
   loading: boolean;
+  max: number;
   mode: string;
+  orderBy: string;
   revisions: RevisionsModel[];
   selected: number[];
+  start: number;
 
   /** @ngInject */
   constructor(private $scope,
@@ -38,10 +41,13 @@ export class AuditLogCtrl {
     $scope.ctrl = this;
 
     this.dashboard = $scope.dashboard;
-    this.mode = 'list';
-    this.limit = 2;
-    this.selected = [];
+    this.limit = 10;
     this.loading = false;
+    this.mode = 'list';
+    this.max = 2;
+    this.orderBy = 'id';
+    this.selected = [];
+    this.start = 0;
 
     this.resetFromSource();
 
@@ -65,7 +71,7 @@ export class AuditLogCtrl {
   }
 
   compareRevisionDisabled(checked: boolean) {
-    return this.selected.length === this.limit && !checked;
+    return this.selected.length === this.max && !checked;
   }
 
   formatDate(date, omitTime = false) {
