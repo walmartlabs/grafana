@@ -88,7 +88,20 @@ export class AuditLogCtrl {
     return this.auditSrv.getAuditLog(this.dashboard).then(revisions => {
       this.revisions = _.flow(
         _.partial(_.orderBy, _, rev => rev.version, 'desc'),
-        _.partialRight(_.map, rev => _.extend({}, rev, { checked: false })),
+        _.partialRight(_.map, rev => _.extend({}, rev, {
+          checked: false,
+          message: (revision => {
+            if (revision.message === '') {
+              if (revision.parentVersion === 0) {
+                return `Dashboard created and saved`;
+              }
+              if (revision.restoredFrom) {
+                return `Restored from version ${revision.restoredFrom}`;
+              }
+            }
+            return revision.message;
+          })(rev),
+        })),
       )(revisions);
     }).catch(err => {
       this.$rootScope.appEvent('alert-error', ['There was an error fetching the audit log', (err.message || err)]);
@@ -117,11 +130,11 @@ export class AuditLogCtrl {
 
   restore(version: number) {
     this.$rootScope.appEvent('confirm-modal', {
-      title: 'Restore',
-      text: 'Do you want to restore this dashboard?',
-      text2: `The dashboard will be restored to version ${version}. All unsaved changes will be lost.`,
+      title: 'Restore version',
+      text: '',
+      text2: `Are you sure you want to restore the dashboard to version ${version}? All unsaved changes will be lost.`,
       icon: 'fa-rotate-right',
-      yesText: 'Restore',
+      yesText: `Yes, restore to version ${version}`,
       onConfirm: this.restoreConfirm.bind(this, version),
     });
   }
@@ -137,7 +150,7 @@ export class AuditLogCtrl {
         version: this.revisions[0].version + 1,
         created: new Date(),
         createdBy: this.contextSrv.user.name,
-        message: '',
+        message: `Restored from version ${version}`,
       });
 
       this.reset();
