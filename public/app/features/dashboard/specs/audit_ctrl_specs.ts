@@ -6,10 +6,12 @@ import { versions, compare, restore } from 'test/mocks/audit-mocks';
 import config from 'app/core/config';
 
 describe('AuditLogCtrl', function() {
+  var RESTORE_ID = 4;
+
   var ctx: any = {};
   var versionsResponse: any = versions();
   var compareResponse: any = compare();
-  var restoreResponse: any = restore;
+  var restoreResponse: any = restore(7, RESTORE_ID);
 
   beforeEach(angularMocks.module('grafana.core'));
   beforeEach(angularMocks.module('grafana.services'));
@@ -48,6 +50,7 @@ describe('AuditLogCtrl', function() {
         expect(ctx.ctrl.delta).to.be(null);
         expect(ctx.ctrl.selected.length).to.be(0);
         expect(ctx.ctrl.selected).to.eql([]);
+        expect(_.find(ctx.ctrl.revisions, rev => rev.checked)).to.be.undefined;
       });
 
       it('should indicate loading has finished', function() {
@@ -68,9 +71,11 @@ describe('AuditLogCtrl', function() {
       it('should set all checked properties to false on reset', function() {
         ctx.ctrl.revisions[0].checked = true;
         ctx.ctrl.revisions[2].checked = true;
+        ctx.ctrl.selected = [0, 2];
         ctx.ctrl.reset();
         var actual = _.filter(ctx.ctrl.revisions, rev => !rev.checked);
         expect(actual.length).to.be(3);
+        expect(ctx.ctrl.selected).to.eql([]);
       });
     });
 
@@ -85,6 +90,7 @@ describe('AuditLogCtrl', function() {
         expect(ctx.ctrl.delta).to.be(null);
         expect(ctx.ctrl.selected.length).to.be(0);
         expect(ctx.ctrl.selected).to.eql([]);
+        expect(_.find(ctx.ctrl.revisions, rev => rev.checked)).to.be.undefined;
       });
 
       it('should indicate loading has finished', function() {
@@ -207,6 +213,7 @@ describe('AuditLogCtrl', function() {
         $rootScope,
         $scope: ctx.scope,
       });
+      ctx.ctrl.$scope.setupDashboard = sinon.stub();
       ctx.ctrl.dashboard = { id: 1 };
       ctx.ctrl.restore();
       ctx.ctrl.$scope.$apply();
@@ -220,7 +227,7 @@ describe('AuditLogCtrl', function() {
     describe('and restore is selected and successful', function() {
       beforeEach(function() {
         deferred.resolve(restoreResponse);
-        ctx.ctrl.restoreConfirm(4);
+        ctx.ctrl.restoreConfirm(RESTORE_ID);
         ctx.ctrl.$scope.$apply();
       });
 
@@ -233,19 +240,58 @@ describe('AuditLogCtrl', function() {
       });
 
       describe('the restored revision', function() {
-        it('should have its id and version numbers incremented', function() {
-          expect(ctx.ctrl.revisions[0].id).to.be(4);
-          expect(ctx.ctrl.revisions[0].version).to.be(7);
+        var first;
+        beforeEach(function() { first = ctx.ctrl.revisions[0]; });
+
+        it('should have its `id` and `version` numbers incremented', function() {
+          expect(first.id).to.be(4);
+          expect(first.version).to.be(7);
         });
 
-        // TODO: assert post-confirm state/behaviours
+        it('should set `parentVersion` to the reverted version', function() {
+          expect(first.parentVersion).to.be(RESTORE_ID);
+        });
+
+        it('should set `dashboardId` to the dashboard\'s id', function() {
+          expect(first.dashboardId).to.be(1);
+        });
+
+        it('should set `created` to date to the current time', function() {
+          expect(_.isDate(first.created)).to.be(true);
+        });
+
+        it('should set `createdBy` to the username of the user who reverted', function() {
+          expect(first.createdBy).to.be('Carlos');
+        });
+
+        it('should set `message` to the user\'s commit message', function() {
+          expect(first.message).to.be('Restored from version 4');
+        });
+      });
+
+      it('should reset the controller\'s state', function() {
+        expect(ctx.ctrl.mode).to.be('list');
+        expect(ctx.ctrl.delta).to.be(null);
+        expect(ctx.ctrl.selected.length).to.be(0);
+        expect(ctx.ctrl.selected).to.eql([]);
+        expect(_.find(ctx.ctrl.revisions, rev => rev.checked)).to.be.undefined;
+      });
+
+      it('should set the dashboard object to the response dashboard data', function() {
+        expect(ctx.ctrl.dashboard).to.eql(restoreResponse.dashboard.dashboard);
+        expect(ctx.ctrl.dashboard.meta).to.eql(restoreResponse.dashboard.meta);
+      });
+
+      it('should call setupDashboard to render new revision', function() {
+        expect(ctx.ctrl.$scope.setupDashboard.calledOnce).to.be(true);
+        expect(ctx.ctrl.$scope.setupDashboard.getCall(0).args[0]).to.eql(restoreResponse.dashboard);
       });
     });
 
     describe('and restore fails to fetch', function() {
       beforeEach(function() {
         deferred.reject(new Error('RestoreError'));
-        ctx.ctrl.restoreConfirm();
+        ctx.ctrl.restoreConfirm(RESTORE_ID);
         ctx.ctrl.$scope.$apply();
       });
 
@@ -256,7 +302,7 @@ describe('AuditLogCtrl', function() {
       it('should broadcast an event indicating the failure', function() {
         expect($rootScope.appEvent.callCount).to.be(2);
         expect($rootScope.appEvent.getCall(0).calledWith('confirm-modal')).to.be(true);
-        expect($rootScope.appEvent.getCall(1).calledWith('alert-error')).to.be(true);
+        expect($rootScope.appEvent.getCall(1).args[0]).to.be('alert-error');
         expect($rootScope.appEvent.getCall(1).args[1][0]).to.be('There was an error restoring the dashboard');
       });
 
