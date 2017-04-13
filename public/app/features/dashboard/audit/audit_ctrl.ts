@@ -1,6 +1,7 @@
 ///<reference path="../../../headers/common.d.ts" />
 
 import _ from 'lodash';
+import angular from 'angular';
 import moment from 'moment';
 
 import coreModule from 'app/core/core_module';
@@ -21,6 +22,7 @@ export interface RevisionsModel {
 export class AuditLogCtrl {
   dashboard: DashboardModel;
   delta: any;
+  diff: string;
   limit: number;
   loading: boolean;
   mode: string;
@@ -30,6 +32,7 @@ export class AuditLogCtrl {
   /** @ngInject */
   constructor(private $scope,
               private $rootScope,
+              private $compile,
               private $window,
               private contextSrv,
               private auditSrv) {
@@ -50,7 +53,7 @@ export class AuditLogCtrl {
       }
     });
 
-    $rootScope.onAppEvent('dashboard-saved', this.onDashboardSaved);
+    $rootScope.onAppEvent('dashboard-saved', this.onDashboardSaved.bind(this));
   }
 
   compareRevisionStateChanged(revision: any) {
@@ -59,26 +62,37 @@ export class AuditLogCtrl {
     } else {
       _.remove(this.selected, version => version === revision.version);
     }
+    this.selected = _.sortBy(this.selected);
   }
 
   compareRevisionDisabled(checked: boolean) {
     return this.selected.length === this.limit && !checked;
   }
 
-  formatDate(date) {
+  formatDate(date, omitTime = false) {
     date = moment.isMoment(date) ? date : moment(date);
-    const format = 'YYYY-MM-DD HH:mm:ss';
+    const format = omitTime ? 'YYYY-MM-DD' : 'YYYY-MM-DD HH:mm:ss';
 
     return this.dashboard.timezone === 'browser' ?
       moment(date).format(format) :
       moment.utc(date).format(format);
   }
 
-  getDiff() {
+  getDiff(diff: string) {
+    this.diff = diff;
     this.mode = 'compare';
     this.loading = true;
-    return this.auditSrv.compareVersions(this.dashboard, this.selected).then(response => {
+    // instead of using lodash to find min/max we use the index
+    // due to the array being sorted in ascending order
+    const compare = {
+      new: this.selected[1],
+      original: this.selected[0],
+    };
+    return this.auditSrv.compareVersions(this.dashboard, compare, diff).then(response => {
       this.delta = response;
+      const container = angular.element('#delta');
+      container.html(this.delta);
+      this.$compile(container.contents())(this.$scope);
     }).catch(err => {
       this.mode = 'list';
       this.$rootScope.appEvent('alert-error', ['There was an error fetching the diff', (err.message || err)]);
@@ -110,6 +124,15 @@ export class AuditLogCtrl {
     }).finally(() => { this.loading = false; });
   }
 
+  getMeta(version: number, property: string) {
+    const revision = _.find(this.revisions, rev => rev.version === version);
+    return revision[property];
+  }
+
+  isOriginalCurrent() {
+    return this.selected[1] === this.dashboard.version;
+  }
+
   isComparable() {
     const isParamLength = this.selected.length === 2;
     const areNumbers = this.selected.every(version => _.isNumber(version));
@@ -127,6 +150,7 @@ export class AuditLogCtrl {
   reset() {
     this.delta = null;
     this.selected = [];
+    this.diff = 'html'; // change to basic when endpoint exists
     this.revisions = _.map(this.revisions, rev => _.extend({}, rev, { checked: false }));
   }
 

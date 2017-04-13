@@ -11,7 +11,8 @@
 				</a>
 			</li>
 			<li class="gf-tabs-item" ng-show="ctrl.mode === 'compare'">
-				<span class="active gf-tabs-link">Compare</span>
+				<span ng-if="ctrl.isOriginalCurrent()" class="active gf-tabs-link">Version {{ctrl.selected[0]}} ↔ Current</span>
+				<span ng-if="!ctrl.isOriginalCurrent()" class="active gf-tabs-link">Version {{ctrl.selected[0]}} ↔ Version {{ctrl.selected[1]}}</span>
 			</li>
 		</ul>
 
@@ -72,7 +73,7 @@
 						</table>
 						<div class="gf-form-group" ng-show="ctrl.mode === 'list' && ctrl.revisions.length > 0">
 							<div class="gf-form-button-row">
-								<a type="button" class="btn gf-form-button btn-primary" ng-class="{disabled: !ctrl.isComparable()}" ng-click="ctrl.getDiff();" ng-disabled="!ctrl.isComparable()">
+								<a type="button" class="btn gf-form-button btn-primary" ng-class="{disabled: !ctrl.isComparable()}" ng-click="ctrl.getDiff(ctrl.diff);" ng-disabled="!ctrl.isComparable()">
 									<i class="fa fa-code-fork" ></i>&nbsp;&nbsp;Compare versions
 								</a>
 							</div>
@@ -88,21 +89,41 @@
 				<em>Fetching changes…</em>
 			</div>
 
-			<div ng-if="!ctrl.loading">
-				<div class="clearfix">
-					<a type="button" class="btn gf-form-button btn-secondary pull-left" ng-click="ctrl.mode = 'list'">
-						<i class="fa fa-arrow-left" ></i>&nbsp;&nbsp;Back to audit log
-					</a>
-				</div>
+			<div class="page-container" ng-if="!ctrl.loading">
+				<div class="page-body">
+					<aside class="page-sidebar">
+						<section class="page-sidebar-section">
+							<ul class="ui-list">
+								<li><a ng-click="ctrl.getDiff('basic')" href="">Change Summary</a></li>
+								<li><a ng-click="ctrl.getDiff('html')" href="">JSON Code View</a></li>
+							</ul>
+						</section>
+					</aside>
 
-				<div ng-bind-html="ctrl.delta">{{ctrl.delta}}</div>
+					<div class="tab-content page-content-with-sidebar">
+						<p>
+							Comparing Version {{ctrl.selected[0]}} ↔ Version {{ctrl.selected[1]}}
+							<span ng-if="ctrl.isOriginalCurrent()">(Current)</span>
+						</p>
 
-				<div class="clearfix">
-					<a type="button" class="btn gf-form-button btn-secondary pull-left" ng-click="ctrl.mode = 'list'">
-						<i class="fa fa-arrow-left" ></i>&nbsp;&nbsp;Back to audit log
-					</a>
+						<p ng-init="new = ctrl.selected[0]">
+							Version {{new}} updated by
+							<span>{{ctrl.getMeta(new, 'createdBy')}}</span> on
+							<span>{{ctrl.formatDate(ctrl.getMeta(new, 'created'), true)}}</span> -
+							<span>{{ctrl.getMeta(new, 'message')}}</span>
+						</p>
+						<p ng-init="original = ctrl.selected[1]">
+							Version {{original}} updated by
+							<span>{{ctrl.getMeta(original, 'createdBy')}}</span> on
+							<span>{{ctrl.formatDate(ctrl.getMeta(original, 'created'), true)}}</span> -
+							<span>{{ctrl.getMeta(original, 'message')}}</span>
+						</p>
+
+						<div id="delta" ng-bind-html="ctrl.delta"></div>
+					</div>
 				</div>
 			</div>
+
 		</div>
 
 	</div>
