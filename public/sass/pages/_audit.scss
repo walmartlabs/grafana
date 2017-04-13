@@ -1,3 +1,4 @@
+// Audit Table
 .audit-table {
   // .gf-form overrides
   .gf-form-label { display: none; }
@@ -44,5 +45,47 @@
 
     th:nth-child(2) { padding-left: 0.5em; }
     th:nth-child(3) { padding-left: $date-padding; }
+  }
+}
+
+// Diff View
+.audit-log {
+  h4 {
+    margin-bottom: 0.75em;
+  }
+
+  .page-container {
+    padding: 0;
+  }
+
+  .page-sidebar {
+    margin-left: 0;
+    margin-right: 3em;
+  }
+
+  .small.muted { margin-bottom: 0.25em; }
+
+  .ui-list > li  {
+    margin-bottom: 1.5em;
+
+    & > a { padding-left: 15px; }
+    & > a.active { @include left-brand-border-gradient(); }
+  }
+}
+
+// Actual Diff
+#delta {
+  margin: 2em 0;
+
+  pre { padding: 0; }
+  pre code { display: block; }
+  span { padding: 2px 0; }
+
+  .diff-added {
+    background-color: #2f5f40;
+  }
+
+  .diff-deleted {
+    background-color: #5a372a;
   }
 }
