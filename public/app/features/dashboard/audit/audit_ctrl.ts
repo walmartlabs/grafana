@@ -49,6 +49,8 @@ export class AuditLogCtrl {
         this.reset();
       }
     });
+
+    $rootScope.onAppEvent('dashboard-saved', this.onDashboardSaved);
   }
 
   compareRevisionStateChanged(revision: any) {
@@ -115,6 +117,11 @@ export class AuditLogCtrl {
       return revision.version === this.selected[0] || revision.version === this.selected[1];
     }).length === 2;
     return isParamLength && areNumbers && areValidVersions;
+  }
+
+  onDashboardSaved() {
+    this.dashboard.version += 1;
+    this.resetFromSource();
   }
 
   reset() {

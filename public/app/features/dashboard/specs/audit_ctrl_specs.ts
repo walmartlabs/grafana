@@ -19,15 +19,26 @@ describe('AuditLogCtrl', function() {
     ctx.scope = $rootScope.$new();
   }));
 
+  var auditSrv;
+  var $rootScope;
+  beforeEach(function() {
+    auditSrv = {
+      getAuditLog: sinon.stub(),
+      compareVersions: sinon.stub(),
+      restoreDashboard: sinon.stub(),
+    };
+    $rootScope = {
+      appEvent: sinon.spy(),
+      onAppEvent: sinon.spy(),
+    };
+  });
+
   describe('when the audit log component is loaded', function() {
     var deferred;
-    var auditSrv: any = {};
-    var $rootScope: any = {};
 
     beforeEach(angularMocks.inject(($controller, $q) => {
       deferred = $q.defer();
-      auditSrv.getAuditLog = sinon.stub().returns(deferred.promise);
-      $rootScope.appEvent = sinon.spy();
+      auditSrv.getAuditLog.returns(deferred.promise);
       ctx.ctrl = $controller(AuditLogCtrl, {
         auditSrv,
         $rootScope,
@@ -106,23 +117,47 @@ describe('AuditLogCtrl', function() {
         expect(ctx.ctrl.revisions).to.eql([]);
       });
     });
+
+    describe('should update the audit log when the dashboard is saved', function() {
+      beforeEach(function() {
+        ctx.ctrl.dashboard = { version: 3 };
+        ctx.ctrl.resetFromSource = sinon.spy();
+      });
+
+      it('should listen for the `dashboard-saved` appEvent', function() {
+        expect($rootScope.onAppEvent.calledOnce).to.be(true);
+        expect($rootScope.onAppEvent.getCall(0).args[0]).to.be('dashboard-saved');
+      });
+
+      it('should call `onDashboardSaved` when the appEvent is received', function() {
+        expect($rootScope.onAppEvent.getCall(0).args[1]).to.be(ctx.ctrl.onDashboardSaved);
+      });
+
+      it('should increment the dashboard version by 1', function() {
+        ctx.ctrl.onDashboardSaved();
+        expect(ctx.ctrl.dashboard.version).to.be(4);
+      });
+
+      it('should call `resetFromSource` to fetch a new audit log', function() {
+        ctx.ctrl.onDashboardSaved();
+        expect(ctx.ctrl.resetFromSource.calledOnce).to.be(true);
+      });
+    });
   });
 
   describe('when the user wants to compare two revisions', function() {
     var deferred;
-    var auditSrv: any = {};
-    var $rootScope: any = {};
 
     beforeEach(angularMocks.inject(($controller, $q) => {
       deferred = $q.defer();
-      auditSrv.getAuditLog = sinon.stub().returns($q.when(versionsResponse));
-      auditSrv.compareVersions = sinon.stub().returns(deferred.promise);
-      $rootScope.appEvent = sinon.spy();
+      auditSrv.getAuditLog.returns($q.when(versionsResponse));
+      auditSrv.compareVersions.returns(deferred.promise);
       ctx.ctrl = $controller(AuditLogCtrl, {
         auditSrv,
         $rootScope,
         $scope: ctx.scope,
       });
+      ctx.ctrl.$scope.onDashboardSaved = sinon.spy();
       ctx.ctrl.$scope.$apply();
     }));
 
@@ -199,14 +234,11 @@ describe('AuditLogCtrl', function() {
 
   describe('when the user wants to restore a revision', function() {
     var deferred;
-    var auditSrv: any = {};
-    var $rootScope: any = {};
 
     beforeEach(angularMocks.inject(($controller, $q) => {
       deferred = $q.defer();
-      auditSrv.getAuditLog = sinon.stub().returns($q.when(versionsResponse));
-      auditSrv.restoreDashboard = sinon.stub().returns(deferred.promise);
-      $rootScope.appEvent = sinon.spy();
+      auditSrv.getAuditLog.returns($q.when(versionsResponse));
+      auditSrv.restoreDashboard.returns(deferred.promise);
       ctx.ctrl = $controller(AuditLogCtrl, {
         auditSrv,
         contextSrv: { user: { name: 'Carlos' }},
