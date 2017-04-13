@@ -94,32 +94,33 @@
 					<aside class="page-sidebar">
 						<section class="page-sidebar-section">
 							<ul class="ui-list">
-								<li><a ng-click="ctrl.getDiff('basic')" href="">Change Summary</a></li>
-								<li><a ng-click="ctrl.getDiff('html')" href="">JSON Code View</a></li>
+								<li><a ng-class="{active: ctrl.diff === 'basic'}" ng-click="ctrl.getDiff('basic')" href="">Change Summary</a></li>
+								<li><a ng-class="{active: ctrl.diff === 'html'}" ng-click="ctrl.getDiff('html')" href="">JSON Code View</a></li>
 							</ul>
 						</section>
 					</aside>
 
 					<div class="tab-content page-content-with-sidebar">
-						<p>
-							Comparing Version {{ctrl.selected[0]}} ↔ Version {{ctrl.selected[1]}}
-							<span ng-if="ctrl.isOriginalCurrent()">(Current)</span>
-						</p>
+						<h4>
+							<strong>Comparing Version {{ctrl.selected[0]}} ↔ Version {{ctrl.selected[1]}}</strong>
+							<cite class="muted" ng-if="ctrl.isOriginalCurrent()">(Current)</cite>
+						</h4>
+						<section ng-if="ctrl.diff === 'basic'">
+							<p class="small muted" ng-init="new = ctrl.selected[0]">
+								<strong>Version {{new}}</strong> updated by
+								<span>{{ctrl.getMeta(new, 'createdBy')}}</span> on
+								<span>{{ctrl.formatDate(ctrl.getMeta(new, 'created'), true)}}</span> -
+								<span>{{ctrl.getMeta(new, 'message')}}</span>
+							</p>
+							<p class="small muted" ng-init="original = ctrl.selected[1]">
+								<strong>Version {{original}}</strong> updated by
+								<span>{{ctrl.getMeta(original, 'createdBy')}}</span> on
+								<span>{{ctrl.formatDate(ctrl.getMeta(original, 'created'), true)}}</span> -
+								<span>{{ctrl.getMeta(original, 'message')}}</span>
+							</p>
+						</section>
 
-						<p ng-init="new = ctrl.selected[0]">
-							Version {{new}} updated by
-							<span>{{ctrl.getMeta(new, 'createdBy')}}</span> on
-							<span>{{ctrl.formatDate(ctrl.getMeta(new, 'created'), true)}}</span> -
-							<span>{{ctrl.getMeta(new, 'message')}}</span>
-						</p>
-						<p ng-init="original = ctrl.selected[1]">
-							Version {{original}} updated by
-							<span>{{ctrl.getMeta(original, 'createdBy')}}</span> on
-							<span>{{ctrl.formatDate(ctrl.getMeta(original, 'created'), true)}}</span> -
-							<span>{{ctrl.getMeta(original, 'message')}}</span>
-						</p>
-
-						<div id="delta" ng-bind-html="ctrl.delta"></div>
+						<div id="delta" class="small" ng-bind-html="ctrl.delta"></div>
 					</div>
 				</div>
 			</div>
