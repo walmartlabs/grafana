@@ -130,7 +130,8 @@ describe('AuditLogCtrl', function() {
       });
 
       it('should call `onDashboardSaved` when the appEvent is received', function() {
-        expect($rootScope.onAppEvent.getCall(0).args[1]).to.be(ctx.ctrl.onDashboardSaved);
+        expect($rootScope.onAppEvent.getCall(0).args[1]).to.not.be(ctx.ctrl.onDashboardSaved);
+        expect($rootScope.onAppEvent.getCall(0).args[1].toString).to.be(ctx.ctrl.onDashboardSaved.toString);
       });
 
       it('should increment the dashboard version by 1', function() {
