@@ -150,7 +150,7 @@ export class AuditLogCtrl {
   reset() {
     this.delta = null;
     this.selected = [];
-    this.diff = 'html'; // change to basic when endpoint exists
+    this.diff = 'basic'; // change to basic when endpoint exists
     this.revisions = _.map(this.revisions, rev => _.extend({}, rev, { checked: false }));
   }
 

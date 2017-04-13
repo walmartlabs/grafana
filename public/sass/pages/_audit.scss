@@ -81,11 +81,24 @@
   pre code { display: block; }
   span { padding: 2px 0; }
 
-  .diff-added {
-    background-color: #2f5f40;
+  .diff-added { background-color: #2f5f40; }
+  .diff-deleted { background-color: #5a372a; }
+
+  .indent-1 { margin-left: 1rem; }
+  .indent-2 { margin-left: 2rem; }
+  .indent-3 { margin-left: 3rem; }
+  .indent-4 { margin-left: 4rem; }
+  .indent-5 { margin-left: 5rem; }
+
+  .circle {
+    border-radius: 50%;
+    width: 14px;
+    height: 14px;
+    display: inline-block;
+    margin-right: .75rem;
   }
 
-  .diff-deleted {
-    background-color: #5a372a;
-  }
+  .circle-changed { background: #f59433; }
+  .circle-added   { background: #29D761; }
+  .circle-deleted { background: #fd474a; }
 }
