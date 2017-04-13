@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"sort"
 
 	diff "github.com/yudai/gojsondiff"
@@ -375,4 +376,210 @@ func sortedKeys(m map[string]interface{}) (keys []string) {
 	}
 	sort.Strings(keys)
 	return
+}
+
+// A Printer is responsible for outputting a diff.
+type Printer struct {
+	indentation int
+	lines       int
+	w           io.Writer
+}
+
+// NewPrinter creates a new printer, writing the output to the given
+// writer.
+func NewPrinter(w io.Writer) *Printer {
+	return &Printer{
+		indentation: 0,
+		lines:       0,
+		w:           w,
+	}
+}
+
+// Format pretty prints a diff
+//
+// TODO(ben) this only goes one level deep
+func (p *Printer) Format(left, right interface{}, deltas []diff.Delta) {
+	// Reset the line count
+	// lines := 0
+
+	// omg thank you based defer
+	p.indentation++
+	defer func() {
+		p.indentation--
+	}()
+
+	// Add missing fields from the right to the left so we can compute the `added` diffs
+	left = mapMerge(left, right)
+
+	// Invert the delta at this level
+	deltaMap := deltaToMap(deltas)
+
+	// Decide what to do based on type
+	switch v := left.(type) {
+	case map[string]interface{}:
+		// lines++
+
+		for k, obj := range v {
+			if ds, ok := deltaMap[k]; ok {
+				for _, d := range ds {
+					fmt.Fprintf(p.w, `<div class="bg-light" style="margin: 0 .25rem">`)
+					fmt.Fprintf(p.w, "<h3 class='indent-%d'>%s</h3>\n", p.indentation, k)
+
+					// Get the change
+					change := getChange(d)
+
+					// If it _isn't_ a map (or an array eventually), then print it
+					//
+					// This might not be working because of the mapMerge behaviour adding the
+					// `added` stuff at the wrong level
+					if _, ok := obj.(map[string]interface{}); !ok {
+						fmt.Fprintf(p.w, "<div class='indent-%d'>%s</div>\n", p.indentation+1, change)
+					}
+					fmt.Fprintf(p.w, `</div>`)
+				}
+
+				leftMap, ok := left.(map[string]interface{})
+				if !ok {
+					continue
+				}
+
+				rightMap, ok := right.(map[string]interface{})
+				if !ok {
+					continue
+				}
+
+				leftK, ok := leftMap[k]
+				if !ok {
+					continue
+				}
+
+				rightK, ok := rightMap[k]
+				if !ok {
+					continue
+				}
+
+				leftKMap, ok := leftK.(map[string]interface{})
+				if !ok {
+					continue
+				}
+
+				rightKMap, ok := rightK.(map[string]interface{})
+				if !ok {
+					continue
+				}
+
+				p.Format(leftKMap, rightKMap, ds)
+			}
+		}
+
+	default:
+	}
+}
+
+// mapMerge adds the missing key/value pairs from the right to the left maps.
+//
+// TODO(ben) support array elements as well
+// TODO(ben) preserve overall ordering when adding keys
+func mapMerge(left, right interface{}) interface{} {
+	leftMap, ok := left.(map[string]interface{})
+	if !ok {
+		return left
+	}
+
+	rightMap, ok := right.(map[string]interface{})
+	if !ok {
+		return left
+	}
+
+	// Iterate over the right map. If a value exists in the right map that
+	// _doesn't_ exist in the left map, add it.
+	for k, v := range rightMap {
+		if _, ok := leftMap[k]; !ok {
+			leftMap[k] = v
+		}
+	}
+	return left
+}
+
+// deltaToMap inverts a delta by a single level. It should be called every time the depth of a map changes
+func deltaToMap(deltas []diff.Delta) map[string][]diff.Delta {
+	invertedDelta := make(map[string][]diff.Delta)
+
+	for _, delta := range deltas {
+		switch delta.(type) {
+		case *diff.Object:
+			d := delta.(*diff.Object)
+			invertedDelta[d.PostPosition().String()] = d.Deltas
+
+		case *diff.Array:
+			d := delta.(*diff.Array)
+			invertedDelta[d.PostPosition().String()] = d.Deltas
+
+		case *diff.Added:
+			d := delta.(*diff.Added)
+			invertedDelta[d.PostPosition().String()] = []diff.Delta{d}
+
+		case *diff.Modified:
+			d := delta.(*diff.Modified)
+			invertedDelta[d.PostPosition().String()] = []diff.Delta{d}
+
+		case *diff.TextDiff:
+			d := delta.(*diff.TextDiff)
+			invertedDelta[d.PostPosition().String()] = []diff.Delta{d}
+
+		case *diff.Deleted:
+			d := delta.(*diff.Deleted)
+			invertedDelta[d.PrePosition().String()] = []diff.Delta{d}
+
+		case *diff.Moved:
+			d := delta.(*diff.Moved)
+			invertedDelta[d.PostPosition().String()] = []diff.Delta{d}
+		}
+	}
+
+	return invertedDelta
+}
+
+// getChange handles how to show the changes made.
+//
+// TODO(ben) abstract this enough so that it can render JSON, text, tables, etc
+func getChange(delta diff.Delta) interface{} {
+	switch delta.(type) {
+	// could probably just return the object and arrays
+
+	// TODO(ben) this is never called
+	case *diff.Object:
+		d := delta.(*diff.Object)
+		for _, v := range d.Deltas {
+			fmt.Println("anything happen")
+			fmt.Printf("\t%v\n", getChange(v))
+		}
+
+	// case *diff.Array:
+	// 	d := delta.(*diff.Array)
+
+	case *diff.Added:
+		d := delta.(*diff.Added)
+		return fmt.Sprintf("<div class='circle circle-added'></div><strong>Added</strong> %v", d.Value)
+
+	case *diff.Modified:
+		d := delta.(*diff.Modified)
+		return fmt.Sprintf("<div class='circle circle-changed'></div>%v → %v", d.OldValue, d.NewValue)
+
+	case *diff.TextDiff:
+		d := delta.(*diff.TextDiff)
+		return fmt.Sprintf("<div class='circle circle-changed'></div>%v → %v", d.OldValue, d.NewValue)
+
+	case *diff.Deleted:
+		d := delta.(*diff.Deleted)
+		return fmt.Sprintf("<div class='circle circle-deleted'></div><strong>Deleted</strong> %v", d.Value)
+
+	case *diff.Moved:
+		d := delta.(*diff.Moved)
+		return fmt.Sprintf("<div class='circle circle-changed'></div><strong>Moved</strong> %v", d.Value)
+
+	default:
+		return nil
+	}
+	return nil
 }
