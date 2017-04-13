@@ -91,9 +91,21 @@ type CompareDashboardVersionsCommand struct {
 	Delta map[string]interface{} `json:"delta"`
 }
 
+// TODO(ben): this should all be one thing
+
 // CompareDashboardVersionsHTMLCommand is used to compare two versions,
 // returning human-readable HTML.
 type CompareDashboardVersionsHTMLCommand struct {
+	DashboardId int64 `json:"dashboardId"`
+	Original    int   `json:"original" binding:"Required"`
+	New         int   `json:"new" binding:"Required"`
+
+	Delta string `json:"delta"`
+}
+
+// CompareDashboardVersionsBasicCommand is used to compare two versions,
+// returning human-readable HTML.
+type CompareDashboardVersionsBasicCommand struct {
 	DashboardId int64 `json:"dashboardId"`
 	Original    int   `json:"original" binding:"Required"`
 	New         int   `json:"new" binding:"Required"`

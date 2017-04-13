@@ -442,6 +442,51 @@ func CompareDashboardVersionByIDHTML(c *middleware.Context) {
 	c.Write([]byte(cmd.Delta))
 }
 
+// CompareDashboardVersionByIDBasic compares dashboards the way the GitHub API does,
+// returning a human-readable HTML diff.
+func CompareDashboardVersionByIDBasic(c *middleware.Context) {
+	dashboardIdStr := c.Params(":dashboardId")
+	dashboardId, err := strconv.Atoi(dashboardIdStr)
+	if err != nil {
+		c.JsonApiErr(400, err.Error(), err)
+		return
+	}
+
+	versions := c.Params("versions")
+	versionStrings := strings.Split(versions, "...")
+	if len(versionStrings) != 2 {
+		c.JsonApiErr(400, "Bad format: URLs should be in the format /versions/0...1", nil)
+		return
+	}
+
+	original, err := strconv.Atoi(versionStrings[0])
+	if err != nil {
+		c.JsonApiErr(400, "Bad format: first argument is not of type integer", nil)
+		return
+	}
+
+	newDashboard, err := strconv.Atoi(versionStrings[1])
+	if err != nil {
+		c.JsonApiErr(400, "Bad format: second argument is not of type integer", nil)
+		return
+	}
+
+	// Dispatch the message
+	cmd := m.CompareDashboardVersionsBasicCommand{
+		DashboardId: int64(dashboardId),
+		Original:    original,
+		New:         newDashboard,
+	}
+	if err := bus.Dispatch(&cmd); err != nil {
+		c.JsonApiErr(500, err.Error(), err)
+		return
+	}
+
+	c.Header().Set("Content-Type", "text/html")
+	c.WriteHeader(200)
+	c.Write([]byte(cmd.Delta))
+}
+
 // CompareDashboardVersion compares two dashboard versions
 func CompareDashboardVersion(c *middleware.Context, cmd m.CompareDashboardVersionsCommand) Response {
 	dashboardIdStr := c.Params(":dashboardId")

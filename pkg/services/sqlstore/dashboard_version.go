@@ -1,6 +1,7 @@
 package sqlstore
 
 import (
+	"bytes"
 	"encoding/json"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 func init() {
 	bus.AddHandler("sql", CompareDashboardVersionsCommand)
 	bus.AddHandler("sql", CompareDashboardVersionsHTMLCommand)
+	bus.AddHandler("sql", CompareDashboardVersionsBasicCommand)
 	bus.AddHandler("sql", GetDashboardVersion)
 	bus.AddHandler("sql", GetDashboardVersions)
 	bus.AddHandler("sql", RestoreDashboardVersion)
@@ -62,6 +64,29 @@ func CompareDashboardVersionsHTMLCommand(cmd *m.CompareDashboardVersionsHTMLComm
 	}
 
 	delta, err := diffHTML(original, newDashboard)
+	if err != nil {
+		return err
+	}
+
+	cmd.Delta = delta
+	return nil
+}
+
+// CompareDashboardVersionsBasicCommand computes the JSON diff of two versions,
+// assigning the delta of the diff to the `Delta` field.
+func CompareDashboardVersionsBasicCommand(cmd *m.CompareDashboardVersionsBasicCommand) error {
+	// Find original version
+	original, err := getDashboardVersion(cmd.DashboardId, cmd.Original)
+	if err != nil {
+		return err
+	}
+
+	newDashboard, err := getDashboardVersion(cmd.DashboardId, cmd.New)
+	if err != nil {
+		return err
+	}
+
+	delta, err := diffBasic(original, newDashboard)
 	if err != nil {
 		return err
 	}
@@ -259,6 +284,25 @@ func diffHTML(original, newDashboard *m.DashboardVersion) (string, error) {
 	}
 
 	return `<pre><code>` + pretty + `</pre></code>`, nil
+}
+
+// diffBasic computes the diff as human-readable string output, for use in HTML
+// templating systems.
+func diffBasic(original, newDashboard *m.DashboardVersion) (string, error) {
+	diff, err := delta(original, newDashboard)
+	if err != nil {
+		return "", err
+	}
+
+	buf := &bytes.Buffer{}
+	printer := diffformatter.NewPrinter(buf)
+	printer.Format(
+		original.Data.Interface(),
+		newDashboard.Data.Interface(),
+		diff.Deltas(),
+	)
+
+	return buf.String(), nil
 }
 
 type version struct {
