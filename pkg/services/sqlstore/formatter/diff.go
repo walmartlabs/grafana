@@ -560,23 +560,23 @@ func getChange(delta diff.Delta) interface{} {
 
 	case *diff.Added:
 		d := delta.(*diff.Added)
-		return fmt.Sprintf("<strong>Added</strong> %v", d.Value)
+		return fmt.Sprintf("<div class='circle circle-added'></div><strong>Added</strong> %v", d.Value)
 
 	case *diff.Modified:
 		d := delta.(*diff.Modified)
-		return fmt.Sprintf("%v → %v", d.OldValue, d.NewValue)
+		return fmt.Sprintf("<div class='circle circle-changed'></div>%v → %v", d.OldValue, d.NewValue)
 
 	case *diff.TextDiff:
 		d := delta.(*diff.TextDiff)
-		return fmt.Sprintf("%v → %v", d.OldValue, d.NewValue)
+		return fmt.Sprintf("<div class='circle circle-changed'></div>%v → %v", d.OldValue, d.NewValue)
 
 	case *diff.Deleted:
 		d := delta.(*diff.Deleted)
-		return fmt.Sprintf("<strong>Deleted</strong> %v", d.Value)
+		return fmt.Sprintf("<div class='circle circle-deleted'></div><strong>Deleted</strong> %v", d.Value)
 
 	case *diff.Moved:
 		d := delta.(*diff.Moved)
-		return fmt.Sprintf("<strong>Moved</strong> %v", d.Value)
+		return fmt.Sprintf("<div class='circle circle-changed'></div><strong>Moved</strong> %v", d.Value)
 
 	default:
 		return nil
