@@ -58,7 +58,7 @@ describe('AuditLogCtrl', function() {
 
       it('should reset the controller\'s state', function() {
         expect(ctx.ctrl.mode).to.be('list');
-        expect(ctx.ctrl.delta).to.be(null);
+        expect(ctx.ctrl.delta).to.be('');
         expect(ctx.ctrl.selected.length).to.be(0);
         expect(ctx.ctrl.selected).to.eql([]);
         expect(_.find(ctx.ctrl.revisions, rev => rev.checked)).to.be.undefined;
@@ -98,7 +98,7 @@ describe('AuditLogCtrl', function() {
 
       it('should reset the controller\'s state', function() {
         expect(ctx.ctrl.mode).to.be('list');
-        expect(ctx.ctrl.delta).to.be(null);
+        expect(ctx.ctrl.delta).to.be('');
         expect(ctx.ctrl.selected.length).to.be(0);
         expect(ctx.ctrl.selected).to.eql([]);
         expect(_.find(ctx.ctrl.revisions, rev => rev.checked)).to.be.undefined;
@@ -211,7 +211,7 @@ describe('AuditLogCtrl', function() {
 
       it('should fetch the diff if two valid versions are selected', function() {
         expect(auditSrv.compareVersions.calledOnce).to.be(true);
-        expect(ctx.ctrl.delta).to.be(null);
+        expect(ctx.ctrl.delta).to.be('');
       });
 
       it('should return to the audit log view', function() {
@@ -228,7 +228,7 @@ describe('AuditLogCtrl', function() {
       });
 
       it('should have an empty delta/changeset', function() {
-        expect(ctx.ctrl.delta).to.be(null);
+        expect(ctx.ctrl.delta).to.be('');
       });
     });
   });
@@ -304,7 +304,7 @@ describe('AuditLogCtrl', function() {
 
       it('should reset the controller\'s state', function() {
         expect(ctx.ctrl.mode).to.be('list');
-        expect(ctx.ctrl.delta).to.be(null);
+        expect(ctx.ctrl.delta).to.be('');
         expect(ctx.ctrl.selected.length).to.be(0);
         expect(ctx.ctrl.selected).to.eql([]);
         expect(_.find(ctx.ctrl.revisions, rev => rev.checked)).to.be.undefined;

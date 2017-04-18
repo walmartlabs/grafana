@@ -21,7 +21,7 @@ export interface RevisionsModel {
 
 export class AuditLogCtrl {
   dashboard: DashboardModel;
-  delta: any;
+  delta: string;
   diff: string;
   limit: number;
   loading: boolean;
@@ -90,9 +90,6 @@ export class AuditLogCtrl {
     };
     return this.auditSrv.compareVersions(this.dashboard, compare, diff).then(response => {
       this.delta = response;
-      const container = angular.element('#delta');
-      container.html(this.delta);
-      this.$compile(container.contents())(this.$scope);
     }).catch(err => {
       this.mode = 'list';
       this.$rootScope.appEvent('alert-error', ['There was an error fetching the diff', (err.message || err)]);
@@ -148,7 +145,7 @@ export class AuditLogCtrl {
   }
 
   reset() {
-    this.delta = null;
+    this.delta = '';
     this.selected = [];
     this.diff = 'basic'; // change to basic when endpoint exists
     this.revisions = _.map(this.revisions, rev => _.extend({}, rev, { checked: false }));
