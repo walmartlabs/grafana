@@ -1,0 +1,20 @@
+<li class="diff-item diff-item-{{changeType}}" ng-switch="changeType">
+  <div class="diff-item-container">
+    <div ng-switch-when="added|deleted" ng-switch-when-separator="|">
+      <span>
+        <i class="diff-circle diff-circle-{{changeType}} fa fa-circle-o" />
+        {{ctrl.name}} {{changeType}}
+      </span>
+    </div>
+
+    <div ng-switch-when="changed">
+      <span>{{ctrl.name}}:</span>
+      <span class="diff-label">{{original}}</span>
+      <i class="diff-arrow fa fa-long-arrow-right" />
+      <span class="diff-label">{{new}}</span>
+    </div>
+    <div ng-switch-when="changeset">
+      <div ng-transclude />
+    </div>
+  </div>
+</li>

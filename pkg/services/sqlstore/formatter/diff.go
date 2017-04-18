@@ -419,23 +419,21 @@ func (p *Printer) Format(left, right interface{}, deltas []diff.Delta) {
 	case map[string]interface{}:
 		// lines++
 
+		fmt.Fprintf(p.w, "<diff-list title='General dashboard settings' type='changed'>\n")
 		for k, obj := range v {
 			if ds, ok := deltaMap[k]; ok {
 				for _, d := range ds {
-					fmt.Fprintf(p.w, `<div class="bg-light" style="margin: 0 .25rem">`)
-					fmt.Fprintf(p.w, "<h3 class='indent-%d'>%s</h3>\n", p.indentation, k)
 
 					// Get the change
-					change := getChange(d)
+					change := getChange(d, k)
 
 					// If it _isn't_ a map (or an array eventually), then print it
 					//
 					// This might not be working because of the mapMerge behaviour adding the
 					// `added` stuff at the wrong level
 					if _, ok := obj.(map[string]interface{}); !ok {
-						fmt.Fprintf(p.w, "<div class='indent-%d'>%s</div>\n", p.indentation+1, change)
+						fmt.Fprintf(p.w, "\t%s\n", change)
 					}
-					fmt.Fprintf(p.w, `</div>`)
 				}
 
 				leftMap, ok := left.(map[string]interface{})
@@ -471,6 +469,7 @@ func (p *Printer) Format(left, right interface{}, deltas []diff.Delta) {
 				p.Format(leftKMap, rightKMap, ds)
 			}
 		}
+		fmt.Fprintf(p.w, "</diff-list>\n")
 
 	default:
 	}
@@ -543,7 +542,7 @@ func deltaToMap(deltas []diff.Delta) map[string][]diff.Delta {
 // getChange handles how to show the changes made.
 //
 // TODO(ben) abstract this enough so that it can render JSON, text, tables, etc
-func getChange(delta diff.Delta) interface{} {
+func getChange(delta diff.Delta, k string) interface{} {
 	switch delta.(type) {
 	// could probably just return the object and arrays
 
@@ -552,7 +551,7 @@ func getChange(delta diff.Delta) interface{} {
 		d := delta.(*diff.Object)
 		for _, v := range d.Deltas {
 			fmt.Println("anything happen")
-			fmt.Printf("\t%v\n", getChange(v))
+			fmt.Printf("\t%v\n", getChange(v, k))
 		}
 
 	// case *diff.Array:
@@ -560,23 +559,23 @@ func getChange(delta diff.Delta) interface{} {
 
 	case *diff.Added:
 		d := delta.(*diff.Added)
-		return fmt.Sprintf("<div class='circle circle-added'></div><strong>Added</strong> %v", d.Value)
+		return fmt.Sprintf("<diff-list-item name='%v' type='added' original='null' new='%v' />", k, d.Value)
 
 	case *diff.Modified:
 		d := delta.(*diff.Modified)
-		return fmt.Sprintf("<div class='circle circle-changed'></div>%v → %v", d.OldValue, d.NewValue)
+		return fmt.Sprintf("<diff-list-item name='%v' type='changed' original='%v' new='%v' />", k, d.OldValue, d.NewValue)
 
 	case *diff.TextDiff:
 		d := delta.(*diff.TextDiff)
-		return fmt.Sprintf("<div class='circle circle-changed'></div>%v → %v", d.OldValue, d.NewValue)
+		return fmt.Sprintf("<diff-list-item name='%v' type='changed' original='%v' new='%v' />", k, d.OldValue, d.NewValue)
 
 	case *diff.Deleted:
 		d := delta.(*diff.Deleted)
-		return fmt.Sprintf("<div class='circle circle-deleted'></div><strong>Deleted</strong> %v", d.Value)
+		return fmt.Sprintf("<diff-list-item name='%v' type='deleted' original='%v' new='null' />", k, d.Value)
 
 	case *diff.Moved:
 		d := delta.(*diff.Moved)
-		return fmt.Sprintf("<div class='circle circle-changed'></div><strong>Moved</strong> %v", d.Value)
+		return fmt.Sprintf("<diff-list-item name='%v' type='changed' value='%v' />", k, d.Value)
 
 	default:
 		return nil
