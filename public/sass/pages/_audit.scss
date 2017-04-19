@@ -77,9 +77,13 @@
 #delta {
   margin: 2em 0;
 
-  pre { padding: 0; }
-  pre code { display: block; }
-  span { padding: 2px 0; }
+  // JSON
+  pre {
+    padding: 0;
+
+    code { display: block; }
+    span { padding: 2px 0; }
+  }
 
   .diff-added { background-color: #2f5f40; }
   .diff-deleted { background-color: #5a372a; }
@@ -101,4 +105,56 @@
   .circle-changed { background: #f59433; }
   .circle-added   { background: #29D761; }
   .circle-deleted { background: #fd474a; }
+}
+
+// Basic
+.diff-circle { margin-right: .5em; }
+.diff-circle-changed { color: #f59433; }
+.diff-circle-added   { color: #29D761; }
+.diff-circle-deleted { color: #fd474a; }
+
+.diff-group {
+  background: $dark-3;
+  padding: 10px 15px;
+
+  & .diff-group { padding: 0 5px; }
+}
+
+.diff-group-title {
+  margin-bottom: .5rem;
+}
+
+.diff-list {
+  padding-left: 40px;
+
+  & .diff-list { padding-left: 0; }
+}
+
+.diff-item-container {
+  margin-left: -5px;
+
+  .diff-circle { font-size: .8rem; }
+
+  .diff-item {
+    list-style: none;
+    padding-left: 0;
+  }
+}
+
+.diff-item {
+  color: $gray-2;
+  line-height: 2.5;
+}
+
+.diff-label {
+  background-color: $dark-2;
+  border-radius: 3px;
+  color: $gray-4;
+  font-size: .95rem;
+  margin: 0 5px;
+  padding: 3px 8px;
+}
+
+.diff-arrow {
+  color: $white;
 }

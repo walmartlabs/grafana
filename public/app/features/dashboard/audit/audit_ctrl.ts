@@ -32,7 +32,6 @@ export class AuditLogCtrl {
   /** @ngInject */
   constructor(private $scope,
               private $rootScope,
-              private $compile,
               private $window,
               private contextSrv,
               private auditSrv) {
