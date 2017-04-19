@@ -56,6 +56,7 @@
 
   .page-container {
     padding: 0;
+    background: none;
   }
 
   .page-sidebar {
@@ -112,6 +113,10 @@
 .diff-circle-changed { color: #f59433; }
 .diff-circle-added   { color: #29D761; }
 .diff-circle-deleted { color: #fd474a; }
+
+.diff-restore-btn {
+  float: right;
+}
 
 .diff-group {
   background: $dark-3;
