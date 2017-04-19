@@ -105,7 +105,13 @@
 							<em>Fetching changes…</em>
 						</div>
 
-						<div ng-if="!ctrl.loading">
+						<div ng-if="!ctrl.loading" ng-init="new = ctrl.selected[0]; original = ctrl.selected[1]">
+							<a type="button"
+								class="btn gf-form-button btn-primary diff-restore-btn"
+								ng-click="ctrl.restore(new)"
+								ng-if="ctrl.isOriginalCurrent()">
+								<i class="fa fa-rotate-right" ></i>&nbsp;&nbsp;Restore to version {{new}}
+							</a>
 							<h4>
 								Comparing Version {{ctrl.selected[0]}}
 								<i class="fa fa-arrows-h" />
@@ -113,13 +119,13 @@
 								<cite class="muted" ng-if="ctrl.isOriginalCurrent()">(Current)</cite>
 							</h4>
 							<section ng-if="ctrl.diff === 'basic'">
-								<p class="small muted" ng-init="new = ctrl.selected[0]">
+								<p class="small muted">
 									<strong>Version {{new}}</strong> updated by
 									<span>{{ctrl.getMeta(new, 'createdBy')}}</span> on
 									<span>{{ctrl.formatDate(ctrl.getMeta(new, 'created'), true)}}</span> -
 									<span>{{ctrl.getMeta(new, 'message')}}</span>
 								</p>
-								<p class="small muted" ng-init="original = ctrl.selected[1]">
+								<p class="small muted">
 									<strong>Version {{original}}</strong> updated by
 									<span>{{ctrl.getMeta(original, 'createdBy')}}</span> on
 									<span>{{ctrl.formatDate(ctrl.getMeta(original, 'created'), true)}}</span> -

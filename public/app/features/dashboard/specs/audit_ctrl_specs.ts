@@ -257,6 +257,16 @@ describe('AuditLogCtrl', function() {
       expect($rootScope.appEvent.calledWith('confirm-modal')).to.be(true);
     });
 
+    describe('from the diff view', function() {
+      it('should return to the list view on restore', function() {
+        ctx.ctrl.mode = 'compare';
+        deferred.resolve(restoreResponse);
+        ctx.ctrl.restoreConfirm(RESTORE_ID);
+        ctx.ctrl.$scope.$apply();
+        expect(ctx.ctrl.mode).to.be('list');
+      });
+    });
+
     describe('and restore is selected and successful', function() {
       beforeEach(function() {
         deferred.resolve(restoreResponse);

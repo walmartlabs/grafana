@@ -38,9 +38,7 @@ export class AuditLogCtrl {
     $scope.ctrl = this;
 
     this.dashboard = $scope.dashboard;
-    this.mode = 'list';
     this.limit = 2;
-    this.selected = [];
     this.loading = false;
 
     this.resetFromSource();
@@ -145,6 +143,7 @@ export class AuditLogCtrl {
 
   reset() {
     this.delta = '';
+    this.mode = 'list';
     this.selected = [];
     this.diff = 'basic'; // change to basic when endpoint exists
     this.revisions = _.map(this.revisions, rev => _.extend({}, rev, { checked: false }));
