@@ -419,7 +419,7 @@ func (p *Printer) Format(left, right interface{}, deltas []diff.Delta) {
 	case map[string]interface{}:
 		// lines++
 
-		fmt.Fprintf(p.w, "<diff-list title='General dashboard settings' type='changed'>\n")
+		fmt.Fprintf(p.w, "<diff-list name='General dashboard settings' type='changed'>\n")
 		for k, obj := range v {
 			if ds, ok := deltaMap[k]; ok {
 				for _, d := range ds {

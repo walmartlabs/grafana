@@ -10,19 +10,39 @@
 		</a>
 	</div>
 
-	<div class="modal-content">
+	<form name="saveMessage" ng-submit="saveVersion(saveMessage.$valid)" class="modal-content" novalidate>
 		<h6 class="text-center">Add a note to describe the changes in this version</h6>
 		<div class="p-t-2">
 			<div class="gf-form">
-				<input type="text" class="gf-form-input" ng-model="clone.message" give-focus="true" ng-keydown="keyDown($event)">
+				<label class="gf-form-hint">
+					<input
+						type="text"
+						name="message"
+						class="gf-form-input"
+						give-focus="true"
+						ng-model="clone.message"
+						ng-model-options="{allowInvalid: true}"
+						ng-keydown="keyDown($event)"
+						ng-maxlength="clone.max"
+						autocomplete="off"
+						required />
+					<small class="gf-form-hint-text muted" ng-cloak>
+						<span ng-class="{'text-error': saveMessage.message.$invalid && saveMessage.message.$dirty }">
+							{{clone.message.length || 0}}
+						</span>
+						/ {{clone.max}} characters
+					</small>
+				</label>
 			</div>
 		</div>
 
 		<div class="gf-form-button-row text-center">
-			<a class="btn btn-success" ng-click="saveVersion();">Save to changelog</a>
-			<a class="btn btn-inverse" ng-click="dismiss();">Cancel</a>
+			<button type="submit" class="btn btn-success" ng-disabled="saveMessage.$invalid">
+				Save to changelog
+			</button>
+			<button class="btn btn-inverse" ng-click="dismiss();">Cancel</button>
 		</div>
-	</div>
+	</form>
 </div>
 
 

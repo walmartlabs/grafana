@@ -17,13 +17,12 @@ function compile($compile) {
 }
 
 // Container for a set of changes
-export function list($compile) {
+export function list() {
   return {
     replace: true,
     restrict: 'E',
     scope: {
       name: '@name',
-      title: '@title',
       changeType: '@type',
     },
     templateUrl: 'public/app/features/dashboard/audit/partials/diff-list.html',

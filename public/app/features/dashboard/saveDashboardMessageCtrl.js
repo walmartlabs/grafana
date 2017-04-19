@@ -10,6 +10,7 @@ function (angular) {
 
     $scope.init = function() {
       $scope.clone.message = '';
+      $scope.clone.max = 64;
     };
 
     function saveDashboard(options) {
@@ -25,7 +26,9 @@ function (angular) {
       });
     }
 
-    $scope.saveVersion = function() {
+    $scope.saveVersion = function(isValid) {
+      if (!isValid) { return; }
+
       saveDashboard({overwrite: false}).then(null, function(err) {
         if (err.data && err.data.status === "version-mismatch") {
           err.isHandled = true;
