@@ -10,6 +10,7 @@ import {DashboardModel} from '../model';
 import {AuditLogOpts, RevisionsModel} from './models';
 
 export class AuditLogCtrl {
+  appending: boolean;
   dashboard: DashboardModel;
   delta: string;
   diff: string;
@@ -30,6 +31,7 @@ export class AuditLogCtrl {
               private auditSrv) {
     $scope.ctrl = this;
 
+    this.appending = false;
     this.dashboard = $scope.dashboard;
     this.diff = 'basic';
     this.limit = 10;
@@ -98,7 +100,8 @@ export class AuditLogCtrl {
   }
 
   getLog(append = false) {
-    this.loading = true;
+    this.loading = !append;
+    this.appending = append;
     const options: AuditLogOpts = {
       limit: this.limit,
       start: this.start,
@@ -121,7 +124,10 @@ export class AuditLogCtrl {
       this.revisions = append ? this.revisions.concat(formattedRevisions) : formattedRevisions;
     }).catch(err => {
       this.$rootScope.appEvent('alert-error', ['There was an error fetching the audit log', (err.message || err)]);
-    }).finally(() => { this.loading = false; });
+    }).finally(() => {
+      this.loading = false;
+      this.appending = false;
+    });
   }
 
   getMeta(version: number, property: string) {

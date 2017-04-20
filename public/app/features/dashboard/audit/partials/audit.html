@@ -29,8 +29,8 @@
 
 		<div ng-if="ctrl.mode === 'list'">
 			<div ng-if="ctrl.loading">
-				<i ng-if="ctrl.loading" class="fa fa-spinner fa-spin"></i>
-				<em>Fetching audit log…</em>
+				<i class="fa fa-spinner fa-spin"></i>
+				<em>Fetching audit log&hellip;</em>
 			</div>
 
 			<div ng-if="!ctrl.loading">
@@ -75,6 +75,12 @@
 								</tr>
 							</tbody>
 						</table>
+
+					<div ng-if="ctrl.appending">
+						<i class="fa fa-spinner fa-spin"></i>
+						<em>Fetching more entries&hellip;</em>
+					</div>
+
 						<div class="gf-form-group" ng-show="ctrl.mode === 'list' && ctrl.revisions.length > 0">
 							<div class="gf-form-button-row">
 								<a type="button" class="btn gf-form-button btn-primary" ng-class="{disabled: !ctrl.isComparable()}" ng-click="ctrl.getDiff(ctrl.diff);" ng-disabled="!ctrl.isComparable()">
@@ -104,8 +110,8 @@
 
 					<div class="tab-content page-content-with-sidebar">
 						<div ng-if="ctrl.loading">
-							<i ng-if="ctrl.loading" class="fa fa-spinner fa-spin"></i>
-							<em>Fetching changes…</em>
+							<i class="fa fa-spinner fa-spin"></i>
+							<em>Fetching changes&hellip;</em>
 						</div>
 
 						<div ng-if="!ctrl.loading" ng-init="new = ctrl.selected[0]; original = ctrl.selected[1]">
