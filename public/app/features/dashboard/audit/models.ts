@@ -1,3 +1,9 @@
+export interface AuditLogOpts {
+  limit: number;
+  start: number;
+  orderBy: string;
+}
+
 export interface RevisionsModel {
   id: number;
   checked: boolean;

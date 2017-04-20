@@ -7,7 +7,7 @@ import moment from 'moment';
 import coreModule from 'app/core/core_module';
 
 import {DashboardModel} from '../model';
-import {RevisionsModel} from './models';
+import {AuditLogOpts, RevisionsModel} from './models';
 
 export class AuditLogCtrl {
   dashboard: DashboardModel;
@@ -93,7 +93,12 @@ export class AuditLogCtrl {
 
   getLog() {
     this.loading = true;
-    return this.auditSrv.getAuditLog(this.dashboard).then(revisions => {
+    const options: AuditLogOpts = {
+      limit: this.limit,
+      start: this.start,
+      orderBy: this.orderBy,
+    };
+    return this.auditSrv.getAuditLog(this.dashboard, options).then(revisions => {
       this.revisions = _.flow(
         _.partial(_.orderBy, _, rev => rev.version, 'desc'),
         _.partialRight(_.map, rev => _.extend({}, rev, {
