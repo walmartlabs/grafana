@@ -104,9 +104,6 @@ export class AuditLogCtrl {
           checked: false,
           message: (revision => {
             if (revision.message === '') {
-              if (revision.parentVersion === 0) {
-                return `Dashboard created and saved`;
-              }
               if (revision.restoredFrom) {
                 return `Restored from version ${revision.restoredFrom}`;
               }
