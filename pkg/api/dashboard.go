@@ -274,6 +274,7 @@ func GetDashboardVersions(c *middleware.Context) {
 	if orderBy == "" {
 		orderBy = "version"
 	}
+  orderBy = orderBy + " DESC"
 	if limit == 0 {
 		limit = 1000
 	}

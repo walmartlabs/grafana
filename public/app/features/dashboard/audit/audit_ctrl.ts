@@ -100,7 +100,6 @@ export class AuditLogCtrl {
     };
     return this.auditSrv.getAuditLog(this.dashboard, options).then(revisions => {
       this.revisions = _.flow(
-        _.partial(_.orderBy, _, rev => rev.version, 'desc'),
         _.partialRight(_.map, rev => _.extend({}, rev, {
           checked: false,
           message: (revision => {
