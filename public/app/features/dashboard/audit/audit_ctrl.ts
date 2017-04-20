@@ -31,10 +31,11 @@ export class AuditLogCtrl {
     $scope.ctrl = this;
 
     this.dashboard = $scope.dashboard;
+    this.diff = 'basic';
     this.limit = 10;
     this.loading = false;
-    this.mode = 'list';
     this.max = 2;
+    this.mode = 'list';
     this.orderBy = 'id';
     this.selected = [];
     this.start = 0;
@@ -49,6 +50,11 @@ export class AuditLogCtrl {
     });
 
     $rootScope.onAppEvent('dashboard-saved', this.onDashboardSaved.bind(this));
+  }
+
+  addToLog() {
+    this.start = this.start + this.limit;
+    this.getLog(true);
   }
 
   compareRevisionStateChanged(revision: any) {
@@ -91,7 +97,7 @@ export class AuditLogCtrl {
     }).finally(() => { this.loading = false; });
   }
 
-  getLog() {
+  getLog(append = false) {
     this.loading = true;
     const options: AuditLogOpts = {
       limit: this.limit,
@@ -99,7 +105,7 @@ export class AuditLogCtrl {
       orderBy: this.orderBy,
     };
     return this.auditSrv.getAuditLog(this.dashboard, options).then(revisions => {
-      this.revisions = _.flow(
+      const formattedRevisions =  _.flow(
         _.partialRight(_.map, rev => _.extend({}, rev, {
           checked: false,
           message: (revision => {
@@ -110,8 +116,9 @@ export class AuditLogCtrl {
             }
             return revision.message;
           })(rev),
-        })),
-      )(revisions);
+        })))(revisions);
+
+      this.revisions = append ? this.revisions.concat(formattedRevisions) : formattedRevisions;
     }).catch(err => {
       this.$rootScope.appEvent('alert-error', ['There was an error fetching the audit log', (err.message || err)]);
     }).finally(() => { this.loading = false; });
@@ -135,6 +142,10 @@ export class AuditLogCtrl {
     return isParamLength && areNumbers && areValidVersions;
   }
 
+  isLastPage() {
+    return _.find(this.revisions, rev => rev.version === 1);
+  }
+
   onDashboardSaved() {
     this.dashboard.version += 1;
     this.resetFromSource();
@@ -142,10 +153,11 @@ export class AuditLogCtrl {
 
   reset() {
     this.delta = '';
+    this.diff = 'basic';
     this.mode = 'list';
-    this.selected = [];
-    this.diff = 'basic'; // change to basic when endpoint exists
     this.revisions = _.map(this.revisions, rev => _.extend({}, rev, { checked: false }));
+    this.selected = [];
+    this.start = 0;
   }
 
   resetFromSource() {

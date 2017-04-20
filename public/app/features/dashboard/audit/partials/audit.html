@@ -80,6 +80,9 @@
 								<a type="button" class="btn gf-form-button btn-primary" ng-class="{disabled: !ctrl.isComparable()}" ng-click="ctrl.getDiff(ctrl.diff);" ng-disabled="!ctrl.isComparable()">
 									<i class="fa fa-code-fork" ></i>&nbsp;&nbsp;Compare versions
 								</a>
+								<a type="button" class="btn gf-form-button btn-inverse" ng-click="ctrl.addToLog();" ng-class="{disabled: ctrl.isLastPage()}" ng-disabled="ctrl.isLastPage()">
+									Show more versions
+								</a>
 							</div>
 						</div>
 					</div>
