@@ -38,7 +38,7 @@ export class AuditLogCtrl {
     this.loading = false;
     this.max = 2;
     this.mode = 'list';
-    this.orderBy = 'id';
+    this.orderBy = 'version';
     this.selected = [];
     this.start = 0;
 
