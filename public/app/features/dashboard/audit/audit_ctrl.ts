@@ -38,7 +38,9 @@ export class AuditLogCtrl {
     $scope.ctrl = this;
 
     this.dashboard = $scope.dashboard;
+    this.mode = 'list';
     this.limit = 2;
+    this.selected = [];
     this.loading = false;
 
     this.resetFromSource();
@@ -102,9 +104,6 @@ export class AuditLogCtrl {
           checked: false,
           message: (revision => {
             if (revision.message === '') {
-              if (revision.parentVersion === 0) {
-                return `Dashboard created and saved`;
-              }
               if (revision.restoredFrom) {
                 return `Restored from version ${revision.restoredFrom}`;
               }
