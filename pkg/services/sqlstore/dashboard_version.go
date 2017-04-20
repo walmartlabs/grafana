@@ -162,6 +162,7 @@ func RestoreDashboardVersion(cmd *m.RestoreDashboardVersionCommand) error {
 		dashVersion := &m.DashboardVersion{
 			DashboardId:   dashboard.Id,
 			ParentVersion: cmd.Version,
+			RestoredFrom:  cmd.Version,
 			Version:       dashboard.Version,
 			Created:       time.Now(),
 			CreatedBy:     dashboard.UpdatedBy,
