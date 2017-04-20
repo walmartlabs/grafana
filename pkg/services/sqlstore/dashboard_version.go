@@ -1,7 +1,6 @@
 package sqlstore
 
 import (
-	"bytes"
 	"encoding/json"
 	"time"
 
@@ -12,6 +11,8 @@ import (
 	diffformatter "github.com/grafana/grafana/pkg/services/sqlstore/formatter"
 	jsondiff "github.com/yudai/gojsondiff"
 	"github.com/yudai/gojsondiff/formatter"
+
+	xx "github.com/grafana/grafana/pkg/services/sqlstore/df"
 )
 
 func init() {
@@ -294,15 +295,18 @@ func diffBasic(original, newDashboard *m.DashboardVersion) (string, error) {
 		return "", err
 	}
 
-	buf := &bytes.Buffer{}
-	printer := diffformatter.NewPrinter(buf)
-	printer.Format(
-		original.Data.Interface(),
-		newDashboard.Data.Interface(),
-		diff.Deltas(),
-	)
+	result := make(map[string]interface{})
+	originalJSON, err := simplejson.NewFromAny(original).Encode()
+	if err != nil {
+		return "", err
+	}
+	err = json.Unmarshal(originalJSON, &result)
+	if err != nil {
+		return "", err
+	}
 
-	return buf.String(), nil
+	format := xx.NewBasicFormatter(result)
+	return format.Format(diff)
 }
 
 type version struct {
