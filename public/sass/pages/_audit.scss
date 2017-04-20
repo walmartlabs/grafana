@@ -80,14 +80,31 @@
 
   // JSON
   pre {
-    padding: 0;
+    border: 0;
+    background: $dark-4;
+    font-size: $font-size-sm;
+    line-height: 1.7;
 
-    code { display: block; }
     span { padding: 2px 0; }
   }
 
-  .diff-added { background-color: #2f5f40; }
-  .diff-deleted { background-color: #5a372a; }
+  .diff-added, .diff-deleted {
+    position: relative;
+    z-index: 0;
+
+    &::after {
+      content: '';
+      height: 20px;
+      width: 1000px;
+      position: absolute;
+      top: -2px;
+      left: -35px;
+      z-index: -10;
+    }
+  }
+
+  .diff-added::after { background: #2f5f40; }
+  .diff-deleted::after { background: #5a372a; }
 
   .indent-1 { margin-left: 1rem; }
   .indent-2 { margin-left: 2rem; }
