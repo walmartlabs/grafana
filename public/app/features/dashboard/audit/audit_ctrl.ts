@@ -7,17 +7,7 @@ import moment from 'moment';
 import coreModule from 'app/core/core_module';
 
 import {DashboardModel} from '../model';
-
-export interface RevisionsModel {
-  id: number;
-  checked: boolean;
-  dashboardId: number;
-  parentVersion: number;
-  version: number;
-  created: Date;
-  createdBy: string;
-  message: string;
-}
+import {RevisionsModel} from './models';
 
 export class AuditLogCtrl {
   dashboard: DashboardModel;
