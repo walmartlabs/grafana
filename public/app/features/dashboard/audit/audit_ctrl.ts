@@ -38,7 +38,9 @@ export class AuditLogCtrl {
     $scope.ctrl = this;
 
     this.dashboard = $scope.dashboard;
+    this.mode = 'list';
     this.limit = 2;
+    this.selected = [];
     this.loading = false;
 
     this.resetFromSource();
