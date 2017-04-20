@@ -131,6 +131,8 @@
 .diff-circle-added   { color: #29D761; }
 .diff-circle-deleted { color: #fd474a; }
 
+.diff-item-added, .diff-item-deleted { list-style: none; }
+
 .diff-restore-btn {
   float: right;
 }
@@ -143,6 +145,7 @@
 }
 
 .diff-group-name {
+  font-size: $font-size-root;
   margin-bottom: .5rem;
 }
 
@@ -152,29 +155,29 @@
   & .diff-list { padding-left: 0; }
 }
 
-.diff-item-container {
-  margin-left: -5px;
-
-  .diff-circle { font-size: .8rem; }
-
-  .diff-item {
-    list-style: none;
-    padding-left: 0;
-  }
-}
-
 .diff-item {
   color: $gray-2;
   line-height: 2.5;
+
+  & > div { display: inline; }
+}
+
+.diff-item-changeset {
+  list-style: none;
 }
 
 .diff-label {
   background-color: $dark-2;
   border-radius: 3px;
   color: $gray-4;
+  display: inline;
   font-size: .95rem;
   margin: 0 5px;
   padding: 3px 8px;
+}
+
+.diff-linenum {
+  float: right;
 }
 
 .diff-arrow {
