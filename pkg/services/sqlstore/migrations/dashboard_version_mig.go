@@ -9,6 +9,7 @@ func addDashboardVersionMigration(mg *Migrator) {
 			{Name: "id", Type: DB_BigInt, IsPrimaryKey: true, IsAutoIncrement: true},
 			{Name: "dashboard_id", Type: DB_BigInt},
 			{Name: "parent_version", Type: DB_Int, Nullable: false},
+			{Name: "restored_from", Type: DB_Int, Nullable: false},
 			{Name: "version", Type: DB_Int, Nullable: false},
 			{Name: "created", Type: DB_DateTime, Nullable: false},
 			{Name: "created_by", Type: DB_BigInt, Nullable: false},
@@ -30,6 +31,7 @@ func addDashboardVersionMigration(mg *Migrator) {
 	dashboard_id,
 	version,
 	parent_version,
+	restored_from,
 	created,
 	created_by,
 	message,
@@ -38,6 +40,7 @@ func addDashboardVersionMigration(mg *Migrator) {
 SELECT
 	dashboard.id,
 	dashboard.version + 1,
+	dashboard.version,
 	dashboard.version,
 	dashboard.updated,
 	dashboard.updated_by,

@@ -18,6 +18,7 @@ type DashboardVersion struct {
 	Id            int64 `json:"id"`
 	DashboardId   int64 `json:"dashboardId"`
 	ParentVersion int   `json:"parentVersion"`
+	RestoredFrom  int   `json:"restoredFrom"`
 	Version       int   `json:"version"`
 
 	Created time.Time `json:"created"`
@@ -42,6 +43,7 @@ type DashboardVersionDTO struct {
 	Id            int64     `json:"id"`
 	DashboardId   int64     `json:"dashboardId"`
 	ParentVersion int       `json:"parentVersion"`
+	RestoredFrom  int       `json:"restoredFrom"`
 	Version       int       `json:"version"`
 	Created       time.Time `json:"created"`
 	CreatedBy     string    `json:"createdBy"`
