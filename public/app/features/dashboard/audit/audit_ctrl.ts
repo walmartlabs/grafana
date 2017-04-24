@@ -7,27 +7,21 @@ import moment from 'moment';
 import coreModule from 'app/core/core_module';
 
 import {DashboardModel} from '../model';
-
-export interface RevisionsModel {
-  id: number;
-  checked: boolean;
-  dashboardId: number;
-  parentVersion: number;
-  version: number;
-  created: Date;
-  createdBy: string;
-  message: string;
-}
+import {AuditLogOpts, RevisionsModel} from './models';
 
 export class AuditLogCtrl {
+  appending: boolean;
   dashboard: DashboardModel;
   delta: string;
   diff: string;
   limit: number;
   loading: boolean;
+  max: number;
   mode: string;
+  orderBy: string;
   revisions: RevisionsModel[];
   selected: number[];
+  start: number;
 
   /** @ngInject */
   constructor(private $scope,
@@ -37,11 +31,16 @@ export class AuditLogCtrl {
               private auditSrv) {
     $scope.ctrl = this;
 
+    this.appending = false;
     this.dashboard = $scope.dashboard;
-    this.mode = 'list';
-    this.limit = 2;
-    this.selected = [];
+    this.diff = 'basic';
+    this.limit = 10;
     this.loading = false;
+    this.max = 2;
+    this.mode = 'list';
+    this.orderBy = 'version';
+    this.selected = [];
+    this.start = 0;
 
     this.resetFromSource();
 
@@ -55,6 +54,11 @@ export class AuditLogCtrl {
     $rootScope.onAppEvent('dashboard-saved', this.onDashboardSaved.bind(this));
   }
 
+  addToLog() {
+    this.start = this.start + this.limit;
+    this.getLog(true);
+  }
+
   compareRevisionStateChanged(revision: any) {
     if (revision.checked) {
       this.selected.push(revision.version);
@@ -65,7 +69,7 @@ export class AuditLogCtrl {
   }
 
   compareRevisionDisabled(checked: boolean) {
-    return this.selected.length === this.limit && !checked;
+    return this.selected.length === this.max && !checked;
   }
 
   formatDate(date, omitTime = false) {
@@ -95,11 +99,16 @@ export class AuditLogCtrl {
     }).finally(() => { this.loading = false; });
   }
 
-  getLog() {
-    this.loading = true;
-    return this.auditSrv.getAuditLog(this.dashboard).then(revisions => {
-      this.revisions = _.flow(
-        _.partial(_.orderBy, _, rev => rev.version, 'desc'),
+  getLog(append = false) {
+    this.loading = !append;
+    this.appending = append;
+    const options: AuditLogOpts = {
+      limit: this.limit,
+      start: this.start,
+      orderBy: this.orderBy,
+    };
+    return this.auditSrv.getAuditLog(this.dashboard, options).then(revisions => {
+      const formattedRevisions =  _.flow(
         _.partialRight(_.map, rev => _.extend({}, rev, {
           checked: false,
           message: (revision => {
@@ -110,11 +119,15 @@ export class AuditLogCtrl {
             }
             return revision.message;
           })(rev),
-        })),
-      )(revisions);
+        })))(revisions);
+
+      this.revisions = append ? this.revisions.concat(formattedRevisions) : formattedRevisions;
     }).catch(err => {
       this.$rootScope.appEvent('alert-error', ['There was an error fetching the audit log', (err.message || err)]);
-    }).finally(() => { this.loading = false; });
+    }).finally(() => {
+      this.loading = false;
+      this.appending = false;
+    });
   }
 
   getMeta(version: number, property: string) {
@@ -135,6 +148,10 @@ export class AuditLogCtrl {
     return isParamLength && areNumbers && areValidVersions;
   }
 
+  isLastPage() {
+    return _.find(this.revisions, rev => rev.version === 1);
+  }
+
   onDashboardSaved() {
     this.dashboard.version += 1;
     this.resetFromSource();
@@ -142,10 +159,11 @@ export class AuditLogCtrl {
 
   reset() {
     this.delta = '';
+    this.diff = 'basic';
     this.mode = 'list';
-    this.selected = [];
-    this.diff = 'basic'; // change to basic when endpoint exists
     this.revisions = _.map(this.revisions, rev => _.extend({}, rev, { checked: false }));
+    this.selected = [];
+    this.start = 0;
   }
 
   resetFromSource() {

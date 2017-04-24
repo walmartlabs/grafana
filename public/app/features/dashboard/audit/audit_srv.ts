@@ -5,14 +5,15 @@ import './audit_ctrl';
 import _ from 'lodash';
 import coreModule from 'app/core/core_module';
 import {DashboardModel} from '../model';
+import {AuditLogOpts} from './models';
 
 export class AuditSrv {
   /** @ngInject */
   constructor(private backendSrv, private $q) {}
 
-  getAuditLog(dashboard: DashboardModel) {
+  getAuditLog(dashboard: DashboardModel, options: AuditLogOpts) {
     const id = dashboard && dashboard.id ? dashboard.id : void 0;
-    return id ? this.backendSrv.get(`api/dashboards/db/${id}/versions`) : this.$q.when([]);
+    return id ? this.backendSrv.get(`api/dashboards/db/${id}/versions`, options) : this.$q.when([]);
   }
 
   compareVersions(dashboard: DashboardModel, compare: { new: number, original: number }, view = 'html') {
