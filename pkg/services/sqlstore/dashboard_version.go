@@ -109,8 +109,12 @@ func GetDashboardVersion(query *m.GetDashboardVersionCommand) error {
 
 // GetDashboardVersions gets all dashboard versions for the given dashboard ID.
 func GetDashboardVersions(query *m.GetDashboardVersionsCommand) error {
+	order := ""
+	if query.OrderBy != "" {
+		order = "desc"
+	}
 	err := x.In("dashboard_id", query.DashboardId).
-		OrderBy(query.OrderBy).
+		OrderBy(query.OrderBy+order).
 		Limit(query.Limit, query.Start).
 		Find(&query.Result)
 	if err != nil {
