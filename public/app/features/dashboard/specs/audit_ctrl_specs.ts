@@ -184,7 +184,8 @@ describe('AuditLogCtrl', function() {
     describe('and the diff is successfully fetched', function() {
       beforeEach(function() {
         deferred.resolve(compareResponse);
-        ctx.ctrl.getDiff();
+        ctx.ctrl.selected = [6, 4];
+        ctx.ctrl.getDiff('basic');
         ctx.ctrl.$scope.$apply();
       });
 
@@ -205,7 +206,8 @@ describe('AuditLogCtrl', function() {
     describe('and fetching the diff fails', function() {
       beforeEach(function() {
         deferred.reject(new Error('DiffError'));
-        ctx.ctrl.getDiff();
+        ctx.ctrl.selected = [6, 4];
+        ctx.ctrl.getDiff('basic');
         ctx.ctrl.$scope.$apply();
       });
 

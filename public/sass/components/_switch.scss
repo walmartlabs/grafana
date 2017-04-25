@@ -97,4 +97,11 @@ gf-form-switch[disabled]  {
     cursor: default;
     pointer-events: none !important;
   }
+
+  .gf-form-switch input + label {
+    &::before {
+      color: $gray-1;
+      text-shadow: none;
+    }
+  }
 }

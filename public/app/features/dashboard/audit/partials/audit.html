@@ -34,11 +34,7 @@
 			</div>
 
 			<div ng-if="!ctrl.loading">
-				<div ng-if="ctrl.revisions.length === 0">
-					<em>No revisions to compare</em>
-				</div>
-
-				<div class="audit-table gf-form" ng-if="ctrl.revisions.length > 0">
+				<div class="audit-table gf-form">
 					<div class="gf-form-group">
 						<table class="filter-table">
 							<thead>
@@ -53,11 +49,11 @@
 							</thead>
 							<tbody>
 								<tr ng-repeat="revision in ctrl.revisions">
-									<td>
+									<td bs-tooltip="ctrl.compareRevisionDisabled(revision.checked) ? 'You can only compare 2 versions at a time' : ''">
 										<gf-form-switch
 											checked="revision.checked"
 											on-change="ctrl.compareRevisionStateChanged(revision)"
-                      ng-disabled="ctrl.compareRevisionDisabled(revision.checked)">
+											ng-disabled="ctrl.compareRevisionDisabled(revision.checked)">
 										</gf-form-switch>
 									</td>
 									<td>{{revision.version}}</td>
@@ -81,12 +77,22 @@
 						<em>Fetching more entries&hellip;</em>
 					</div>
 
-						<div class="gf-form-group" ng-show="ctrl.mode === 'list' && ctrl.revisions.length > 0">
+						<div class="gf-form-group" ng-show="ctrl.mode === 'list'">
 							<div class="gf-form-button-row">
-								<a type="button" class="btn gf-form-button btn-primary" ng-class="{disabled: !ctrl.isComparable()}" ng-click="ctrl.getDiff(ctrl.diff);" ng-disabled="!ctrl.isComparable()">
+								<a	type="button"
+										class="btn gf-form-button btn-primary"
+										ng-if="ctrl.revisions.length > 1"
+										ng-class="{disabled: !ctrl.isComparable()}"
+										ng-click="ctrl.getDiff(ctrl.diff)"
+										bs-tooltip="ctrl.isComparable() ? '' : 'Select 2 versions to start comparing'">
 									<i class="fa fa-code-fork" ></i>&nbsp;&nbsp;Compare versions
 								</a>
-								<a type="button" class="btn gf-form-button btn-inverse" ng-click="ctrl.addToLog();" ng-class="{disabled: ctrl.isLastPage()}" ng-disabled="ctrl.isLastPage()">
+								<a  type="button"
+										class="btn gf-form-button btn-inverse"
+										ng-if="ctrl.revisions > ctrl.limit"
+										ng-click="ctrl.addToLog()"
+										ng-class="{disabled: ctrl.isLastPage()}"
+										ng-disabled="ctrl.isLastPage()">
 									Show more versions
 								</a>
 							</div>
