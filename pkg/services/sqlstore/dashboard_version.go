@@ -112,7 +112,7 @@ func GetDashboardVersion(query *m.GetDashboardVersionCommand) error {
 func GetDashboardVersions(query *m.GetDashboardVersionsCommand) error {
 	order := ""
 	if query.OrderBy != "" {
-		order = "desc"
+		order = " desc"
 	}
 	err := x.In("dashboard_id", query.DashboardId).
 		OrderBy(query.OrderBy+order).
