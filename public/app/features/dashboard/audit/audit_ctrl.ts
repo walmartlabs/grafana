@@ -82,6 +82,7 @@ export class AuditLogCtrl {
   }
 
   getDiff(diff: string) {
+    if (!this.isComparable()) { return; } // disable button but not tooltip
     this.diff = diff;
     this.mode = 'compare';
     this.loading = true;
