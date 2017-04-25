@@ -69,7 +69,7 @@ export class AuditLogCtrl {
   }
 
   compareRevisionDisabled(checked: boolean) {
-    return this.selected.length === this.max && !checked;
+    return (this.selected.length === this.max && !checked) || this.revisions.length === 1;
   }
 
   formatDate(date, omitTime = false) {
