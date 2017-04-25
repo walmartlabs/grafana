@@ -34,11 +34,7 @@
 			</div>
 
 			<div ng-if="!ctrl.loading">
-				<div ng-if="ctrl.revisions.length === 0">
-					<em>No revisions to compare</em>
-				</div>
-
-				<div class="audit-table gf-form" ng-if="ctrl.revisions.length > 0">
+				<div class="audit-table gf-form">
 					<div class="gf-form-group">
 						<table class="filter-table">
 							<thead>
@@ -81,7 +77,7 @@
 						<em>Fetching more entries&hellip;</em>
 					</div>
 
-						<div class="gf-form-group" ng-show="ctrl.mode === 'list' && ctrl.revisions.length > 0">
+						<div class="gf-form-group" ng-show="ctrl.mode === 'list'">
 							<div class="gf-form-button-row">
 								<a type="button" class="btn gf-form-button btn-primary" ng-class="{disabled: !ctrl.isComparable()}" ng-click="ctrl.getDiff(ctrl.diff);" ng-disabled="!ctrl.isComparable()">
 									<i class="fa fa-code-fork" ></i>&nbsp;&nbsp;Compare versions
