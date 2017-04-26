@@ -16,7 +16,6 @@ import "./directives/value_select_dropdown";
 import "./directives/plugin_component";
 import "./directives/rebuild_on_change";
 import "./directives/give_focus";
-import "./directives/diff_view";
 import './jquery_extended';
 import './partials';
 import './components/jsontree/jsontree';
