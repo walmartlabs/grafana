@@ -32,8 +32,8 @@ function (angular) {
 
     $scope.saveClone = function() {
       return backendSrv.saveDashboard($scope.clone, {overwrite: false})
-        .then(dashboardSrv.afterSave.bind(dashboardSrv, $scope.clone))
-        .catch(dashboardSrv.handleSaveDashboardError.bind(dashboardSrv))
+        .then(dashboardSrv.postSave.bind(dashboardSrv, $scope.clone))
+        .catch(dashboardSrv.handleSaveDashboardError.bind(dashboardSrv, $scope.clone))
         .finally(function() { $scope.dismiss(); });
     };
   });

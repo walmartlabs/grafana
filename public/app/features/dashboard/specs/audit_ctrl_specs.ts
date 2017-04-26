@@ -134,14 +134,10 @@ describe('AuditLogCtrl', function() {
         expect($rootScope.onAppEvent.getCall(0).args[1].toString).to.be(ctx.ctrl.onDashboardSaved.toString);
       });
 
-      it('should increment the dashboard version by 1', function() {
+      it('should emit an appEvent to hide the changelog', function() {
         ctx.ctrl.onDashboardSaved();
-        expect(ctx.ctrl.dashboard.version).to.be(4);
-      });
-
-      it('should call `resetFromSource` to fetch a new audit log', function() {
-        ctx.ctrl.onDashboardSaved();
-        expect(ctx.ctrl.resetFromSource.calledOnce).to.be(true);
+        expect($rootScope.appEvent.calledOnce).to.be(true);
+        expect($rootScope.appEvent.getCall(0).args[0]).to.be('hide-dash-editor');
       });
     });
   });
