@@ -16,8 +16,8 @@ function (angular) {
     function saveDashboard(options) {
       options.message = $scope.clone.message;
       return backendSrv.saveDashboard($scope.clone, options)
-        .then(dashboardSrv.afterSave.bind(dashboardSrv, $scope.clone))
-        .catch(dashboardSrv.handleSaveDashboardError.bind(dashboardSrv))
+        .then(dashboardSrv.postSave.bind(dashboardSrv, $scope.clone))
+        .catch(dashboardSrv.handleSaveDashboardError.bind(dashboardSrv, $scope.clone))
         .finally(function() { $scope.dismiss(); });
     }
 

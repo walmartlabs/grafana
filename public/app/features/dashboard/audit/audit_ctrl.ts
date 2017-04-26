@@ -154,8 +154,7 @@ export class AuditLogCtrl {
   }
 
   onDashboardSaved() {
-    this.dashboard.version += 1;
-    this.resetFromSource();
+    this.$rootScope.appEvent('hide-dash-editor');
   }
 
   reset() {
