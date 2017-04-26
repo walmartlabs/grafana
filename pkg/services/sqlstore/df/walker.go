@@ -28,7 +28,7 @@ func (w *BasicWalker) String() string {
 	return w.buf.String()
 }
 
-// walk is the walk implementation for the basic diff
+// Walk is the walk implementation for the basic diff
 //
 // We start by checking every top-level key, and seeing what the delta type is.
 // If the delta is unknown, we need to traverse that key to see the changes,
@@ -110,7 +110,7 @@ func (w *BasicWalker) Walk(value interface{}, info *DeltaInfo, err error) error 
 			// fmt.Printf("%3d| %v changed\n", info.GetLine(), value)
 
 			fmt.Fprintf(w.buf, `%s<h2 class="changed title diff-group-name">%s`, strings.Repeat(" ", info.GetIndent()*2), "\n")
-			fmt.Fprintf(w.buf, `%s<i class="diff-circle diff-circle-deleted fa fa-circle"></i>%s`, strings.Repeat(" ", (info.GetIndent()*2)+2), "\n")
+			fmt.Fprintf(w.buf, `%s<i class="diff-circle diff-circle-changed fa fa-circle"></i>%s`, strings.Repeat(" ", (info.GetIndent()*2)+2), "\n")
 			fmt.Fprintf(w.buf, `%s%v%s`, strings.Repeat(" ", (info.GetIndent()*2)+2), value, "\n")
 			fmt.Fprintf(w.buf, `%s</div>%s`, strings.Repeat(" ", info.GetIndent()*2), "\n\n")
 
