@@ -45,9 +45,9 @@ func (w *BasicWalker) Walk(value interface{}, info *DeltaInfo, err error) error 
 		} else if w.isNew {
 			// fmt.Printf("%#v\n", value)
 			// 		<div class="change list-change diff-label">Postgresql Prod Medusa</div>
-			// 		<a class="change list-linenum diff-linenum btn btn-inverse btn-small">Line 31<a>
+			// 		<a class="change list-linenum diff-linenum btn btn-inverse btn-small">Line 31</a>
 			fmt.Fprintf(w.buf, `%s<div class="change list-change diff-label">%v</div>%s`, strings.Repeat(" ", info.GetIndent()*2), value, "\n")
-			fmt.Fprintf(w.buf, `%s<a class="change list-linenum diff-linenum btn btn-inverse btn-small">Line %d<a>%s`, strings.Repeat(" ", info.GetIndent()*2), info.GetLine(), "\n\n")
+			fmt.Fprintf(w.buf, `%s<a class="change list-linenum diff-linenum btn btn-inverse btn-small">Line %d</a>%s`, strings.Repeat(" ", info.GetIndent()*2), info.GetLine(), "\n\n")
 		} else {
 			// hidden for now
 			// fmt.Printf("%3d|%s* %#v\n", info.GetLine(), strings.Repeat(" ", info.GetIndent()*2), value)
@@ -90,7 +90,7 @@ func (w *BasicWalker) Walk(value interface{}, info *DeltaInfo, err error) error 
 			// 		<div class="change list-change diff-label">Untitled</div>
 			// 		<i class="diff-arrow fa fa-long-arrow-right"></i>
 			// 		<div class="change list-change diff-label">Postgresql Prod Medusa</div>
-			// 		<a class="change list-linenum diff-linenum btn btn-inverse btn-small">Line 31<a>
+			// 		<a class="change list-linenum diff-linenum btn btn-inverse btn-small">Line 31</a>
 			// 	</li>
 			// </ul>
 			// need to open the ul...
