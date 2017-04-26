@@ -69,9 +69,9 @@ describe('AuditLogCtrl', function() {
       });
 
       it('should store the revisions sorted desc by version id', function() {
-        expect(ctx.ctrl.revisions[0].version).to.be(6);
-        expect(ctx.ctrl.revisions[1].version).to.be(5);
-        expect(ctx.ctrl.revisions[2].version).to.be(4);
+        expect(ctx.ctrl.revisions[0].version).to.be(3);
+        expect(ctx.ctrl.revisions[1].version).to.be(2);
+        expect(ctx.ctrl.revisions[2].version).to.be(1);
       });
 
       it('should add a checked property to each revision', function() {
@@ -87,6 +87,21 @@ describe('AuditLogCtrl', function() {
         var actual = _.filter(ctx.ctrl.revisions, rev => !rev.checked);
         expect(actual.length).to.be(3);
         expect(ctx.ctrl.selected).to.eql([]);
+      });
+
+      it('should add a message to the initial dashboard save', function() {
+        var oldVersion = ctx.ctrl.revisions[2].version;
+        ctx.ctrl.revisions[2].version = 1;
+        expect(ctx.ctrl.revisions[2].message).to.be('Dashboard initial save');
+        ctx.ctrl.revisions[2].version = oldVersion;
+      });
+
+      it('should add a message to revisions restored from another version', function() {
+        expect(ctx.ctrl.revisions[0].message).to.be('Restored from version 1');
+      });
+
+      it('should add a message to entries that overwrote version history', function() {
+        expect(ctx.ctrl.revisions[1].message).to.be('Dashboard overwritten');
       });
     });
 
@@ -167,20 +182,23 @@ describe('AuditLogCtrl', function() {
       // []
       expect(ctx.ctrl.isComparable()).to.be(false);
 
-      ctx.ctrl.selected = [6];
+      // single value
+      ctx.ctrl.selected = [3];
       expect(ctx.ctrl.isComparable()).to.be(false);
 
-      ctx.ctrl.selected = [6, 4];
+      // both values in range
+      ctx.ctrl.selected = [3, 1];
       expect(ctx.ctrl.isComparable()).to.be(true);
 
-      ctx.ctrl.selected = [2, 1];
+      // values out of range
+      ctx.ctrl.selected = [6, 4];
       expect(ctx.ctrl.isComparable()).to.be(false);
     });
 
     describe('and the diff is successfully fetched', function() {
       beforeEach(function() {
         deferred.resolve(compareResponse);
-        ctx.ctrl.selected = [6, 4];
+        ctx.ctrl.selected = [3, 1];
         ctx.ctrl.getDiff('basic');
         ctx.ctrl.$scope.$apply();
       });
@@ -202,7 +220,7 @@ describe('AuditLogCtrl', function() {
     describe('and fetching the diff fails', function() {
       beforeEach(function() {
         deferred.reject(new Error('DiffError'));
-        ctx.ctrl.selected = [6, 4];
+        ctx.ctrl.selected = [3, 1];
         ctx.ctrl.getDiff('basic');
         ctx.ctrl.$scope.$apply();
       });
@@ -286,7 +304,7 @@ describe('AuditLogCtrl', function() {
 
         it('should have its `id` and `version` numbers incremented', function() {
           expect(first.id).to.be(4);
-          expect(first.version).to.be(7);
+          expect(first.version).to.be(4);
         });
 
         it('should set `parentVersion` to the reverted version', function() {
