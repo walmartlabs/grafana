@@ -122,7 +122,7 @@ export class DashboardSrv {
     });
   }
 
-  saveDashboardMessage(clone = this.dash.getSaveModelClone()) {
+  saveDashboardMessage() {
     var newScope = this.$rootScope.$new();
     newScope.clone = this.dash.getSaveModelClone();
 
