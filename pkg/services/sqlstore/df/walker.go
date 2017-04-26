@@ -94,7 +94,7 @@ func (w *BasicWalker) Walk(value interface{}, info *DeltaInfo, err error) error 
 			// 	</li>
 			// </ul>
 			// need to open the ul...
-			fmt.Fprintf(w.buf, `%s<div class="change list-title>%v</div>%s`, strings.Repeat(" ", (info.GetIndent()*2)), value, "\n")
+			fmt.Fprintf(w.buf, `%s<div class="change list-title">%v</div>%s`, strings.Repeat(" ", (info.GetIndent()*2)), value, "\n")
 
 			// fmt.Printf("%3d| %v changed\n", info.GetLine(), value)
 			w.shouldPrint = true
