@@ -89,7 +89,7 @@
 								</a>
 								<a  type="button"
 										class="btn gf-form-button btn-inverse"
-										ng-if="ctrl.revisions > ctrl.limit"
+										ng-if="ctrl.revisions.length >= ctrl.limit"
 										ng-click="ctrl.addToLog()"
 										ng-class="{disabled: ctrl.isLastPage()}"
 										ng-disabled="ctrl.isLastPage()">
