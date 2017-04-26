@@ -67,7 +67,7 @@ func (w *BasicWalker) Walk(value interface{}, info *DeltaInfo, err error) error 
 			fmt.Fprintf(w.buf, `%s<h2 class="added title diff-group-name">%s`, strings.Repeat(" ", info.GetIndent()*2), "\n")
 			fmt.Fprintf(w.buf, `%s<i class="diff-circle diff-circle-added fa fa-circle"></i>%s`, strings.Repeat(" ", (info.GetIndent()*2)+2), "\n")
 			fmt.Fprintf(w.buf, `%s%v%s`, strings.Repeat(" ", (info.GetIndent()*2)+2), value, "\n")
-			fmt.Fprintf(w.buf, `%s</div>%s`, strings.Repeat(" ", info.GetIndent()*2), "\n\n")
+			fmt.Fprintf(w.buf, `%s</h2>%s`, strings.Repeat(" ", info.GetIndent()*2), "\n\n")
 			// TODO(line number)???
 
 			// fmt.Printf("%3d| %v created\n", info.GetLine(), value)
@@ -77,7 +77,7 @@ func (w *BasicWalker) Walk(value interface{}, info *DeltaInfo, err error) error 
 			fmt.Fprintf(w.buf, `%s<h2 class="deleted title diff-group-name">%s`, strings.Repeat(" ", info.GetIndent()*2), "\n")
 			fmt.Fprintf(w.buf, `%s<i class="diff-circle diff-circle-deleted fa fa-circle"></i>%s`, strings.Repeat(" ", (info.GetIndent()*2)+2), "\n")
 			fmt.Fprintf(w.buf, `%s%v%s`, strings.Repeat(" ", (info.GetIndent()*2)+2), value, "\n")
-			fmt.Fprintf(w.buf, `%s</div>%s`, strings.Repeat(" ", info.GetIndent()*2), "\n\n")
+			fmt.Fprintf(w.buf, `%s</h2>%s`, strings.Repeat(" ", info.GetIndent()*2), "\n\n")
 			// TODO(line number)
 
 			// fmt.Printf("%3d| %v deleted\n", info.GetLine(), value)
@@ -112,7 +112,7 @@ func (w *BasicWalker) Walk(value interface{}, info *DeltaInfo, err error) error 
 			fmt.Fprintf(w.buf, `%s<h2 class="changed title diff-group-name">%s`, strings.Repeat(" ", info.GetIndent()*2), "\n")
 			fmt.Fprintf(w.buf, `%s<i class="diff-circle diff-circle-changed fa fa-circle"></i>%s`, strings.Repeat(" ", (info.GetIndent()*2)+2), "\n")
 			fmt.Fprintf(w.buf, `%s%v%s`, strings.Repeat(" ", (info.GetIndent()*2)+2), value, "\n")
-			fmt.Fprintf(w.buf, `%s</div>%s`, strings.Repeat(" ", info.GetIndent()*2), "\n\n")
+			fmt.Fprintf(w.buf, `%s</h2>%s`, strings.Repeat(" ", info.GetIndent()*2), "\n\n")
 
 		}
 	}
