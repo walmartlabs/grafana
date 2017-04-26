@@ -138,7 +138,7 @@ func (w *BasicWalker) insertHTML(info *DeltaInfo) {
 		// since this logic is actually good
 		switch w.lastIdent - info.GetIndent() {
 		case -1:
-			fmt.Fprintf(w.buf, `%s<div class="diff-section diff-group>%s`, strings.Repeat(" ", info.GetIndent()*2), "\n")
+			fmt.Fprintf(w.buf, `%s<div class="diff-section diff-group">%s`, strings.Repeat(" ", info.GetIndent()*2), "\n")
 		case 0:
 		// nothing?
 		case 1:
