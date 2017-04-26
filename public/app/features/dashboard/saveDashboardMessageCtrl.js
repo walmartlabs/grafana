@@ -6,7 +6,7 @@ function (angular) {
 
   var module = angular.module('grafana.controllers');
 
-  module.controller('SaveDashboardMessageCtrl', function($scope, backendSrv, dashboardSrv) {
+  module.controller('SaveDashboardMessageCtrl', function($scope, dashboardSrv) {
 
     $scope.init = function() {
       $scope.clone.message = '';
@@ -15,10 +15,8 @@ function (angular) {
 
     function saveDashboard(options) {
       options.message = $scope.clone.message;
-      return backendSrv.saveDashboard($scope.clone, options)
-        .then(dashboardSrv.postSave.bind(dashboardSrv, $scope.clone))
-        .catch(dashboardSrv.handleSaveDashboardError.bind(dashboardSrv, $scope.clone))
-        .finally(function() { $scope.dismiss(); });
+      return dashboardSrv.save($scope.clone, options)
+        .then(function() { $scope.dismiss(); });
     }
 
     $scope.saveVersion = function(isValid) {

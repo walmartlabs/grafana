@@ -86,6 +86,12 @@ export class DashboardSrv {
     this.$rootScope.appEvent('alert-success', ['Dashboard saved', 'Saved as ' + clone.title]);
   }
 
+  save(clone, options) {
+    return this.backendSrv.saveDashboard(clone, options)
+      .then(this.postSave.bind(this, clone))
+      .catch(this.handleSaveDashboardError.bind(this, clone));
+  }
+
   saveDashboard(options, clone) {
     if (clone) {
       this.setCurrent(this.create(clone, this.dash.meta));
@@ -103,10 +109,7 @@ export class DashboardSrv {
       return this.saveDashboardMessage();
     }
 
-    clone = this.dash.getSaveModelClone();
-    return this.backendSrv.saveDashboard(clone, options)
-      .then(this.postSave.bind(this, clone))
-      .catch(this.handleSaveDashboardError.bind(this, clone));
+    return this.save(this.dash.getSaveModelClone(), options);
   }
 
   saveDashboardAs() {
