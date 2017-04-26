@@ -1,18 +1,19 @@
 package sqlstore
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/go-xorm/xorm"
 	"github.com/grafana/grafana/pkg/bus"
 	"github.com/grafana/grafana/pkg/components/simplejson"
 	m "github.com/grafana/grafana/pkg/models"
+	"github.com/grafana/grafana/pkg/services/sqlstore/df"
 	diffformatter "github.com/grafana/grafana/pkg/services/sqlstore/formatter"
 	jsondiff "github.com/yudai/gojsondiff"
 	"github.com/yudai/gojsondiff/formatter"
-
-	xx "github.com/grafana/grafana/pkg/services/sqlstore/df"
 )
 
 func init() {
@@ -310,8 +311,18 @@ func diffBasic(original, newDashboard *m.DashboardVersion) (string, error) {
 		return "", err
 	}
 
-	format := xx.NewBasicFormatter(result)
-	return format.Format(diff)
+	// New Basic Diff stuff
+	//
+	// walkFn
+	lineWalker := df.NewBasicWalker()
+	enc := df.NewWalker(result, lineWalker.Walk)
+
+	buf := &bytes.Buffer{}
+	fmt.Fprintln(buf, `<div class="basic-diff">`)
+	enc.Walk(diff)
+	fmt.Fprint(buf, lineWalker.String())
+	fmt.Fprintln(buf, `</div>`)
+	return buf.String(), nil
 }
 
 type version struct {
