@@ -10,7 +10,7 @@ import (
 
 var (
 	// tplChange is used to render 1-line deep changes
-	tplChange =`{{ indent .Indent }}<div class="diff-section diff-group">
+	tplChange = `{{ indent .Indent }}<div class="diff-section diff-group">
 {{ indent .Indent }}  <h2 class="{{ getChange .Change }} title diff-group-name">
 {{ indent .Indent }}    <i class="diff-circle diff-circle-{{ getChange .Change }} fa fa-circle"></i>
 {{ indent .Indent }}    <strong>{{ title .Value }}</strong> {{ getChange .Change }}
@@ -123,9 +123,27 @@ func (w *BasicWalker) Walk(value interface{}, info *DeltaInfo, err error) error 
 			// 	</li>
 			// </ul>
 			// need to open the ul...
-			fmt.Fprintf(w.buf, `%s<div class="diff-section diff-group"><h2 class="changed title diff-group-name"><i class="diff-circle diff-circle-changed fa fa-circle"></i><strong>%s</strong> changed</h2>%s`, strings.Repeat(" ", (info.GetIndent()*2)), strings.Title(value.(string)), "\n")
+			//
+			// TODO(ben) move this into template, change title template helper
+			// to accept interface{} and assert string
+			if valueStr, ok := value.(string); ok {
+				fmt.Fprintf(
+					w.buf,
+					`%s<div class="diff-section diff-group"><h2 class="changed title diff-group-name"><i class="diff-circle diff-circle-changed fa fa-circle"></i><strong>%s</strong> changed</h2>%s`,
+					strings.Repeat(" ", (info.GetIndent()*2)),
+					strings.Title(valueStr),
+					"\n",
+				)
+			} else {
+				fmt.Fprintf(
+					w.buf,
+					`%s<div class="diff-section diff-group"><h2 class="changed title diff-group-name"><i class="diff-circle diff-circle-changed fa fa-circle"></i><strong>%v</strong> changed</h2>%s`,
+					strings.Repeat(" ", (info.GetIndent()*2)),
+					value,
+					"\n",
+				)
+			}
 
-			// fmt.Printf("%3d| %v changed\n", info.GetLine(), value)
 			w.shouldPrint = true
 			w.isOld = true
 
