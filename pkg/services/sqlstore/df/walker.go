@@ -4,6 +4,24 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
+
+	"html/template"
+)
+
+var (
+	// tplChange is used to render 1-line deep changes
+	tplChange = `{{ indent .Indent }}<h2 class="{{ getChange .Change }} title diff-group-name">
+{{ indent .Indent }}  <i class="diff-circle diff-circle-{{ getChange .Change }} fa fa-circle"></i>
+{{ indent .Indent }}  {{ title .Value }}
+{{ indent .Indent }}</h2>
+
+`
+
+	// encStateMap is used in the template helper
+	encStateMap = map[EncState]string{
+		StateAdded:   "added",
+		StateDeleted: "deleted",
+	}
 )
 
 // BasicWalker walks and prints a bsic diff.
@@ -15,12 +33,33 @@ type BasicWalker struct {
 	shouldPrint   bool
 	isOld         bool
 	isNew         bool
+	tpl           *template.Template
 }
 
 func NewBasicWalker() *BasicWalker {
+	// parse tpls
+	tpl := template.Must(
+		template.New("change").
+			Funcs(template.FuncMap{
+				"getChange": func(e EncState) string {
+					state, ok := encStateMap[e]
+					if !ok {
+						return "changed"
+					}
+					return state
+				},
+				"indent": func(indent int) string {
+					return strings.Repeat(" ", indent*2)
+				},
+				"title": strings.Title,
+			}).
+			Parse(tplChange))
+
+	// return object
 	return &BasicWalker{
 		lastLineState: ObjectOpen,
 		buf:           &bytes.Buffer{},
+		tpl:           tpl,
 	}
 }
 
@@ -59,28 +98,17 @@ func (w *BasicWalker) Walk(value interface{}, info *DeltaInfo, err error) error 
 
 	if isBasicDiffDelta(2, info) {
 		switch info.GetEncodingState() {
-		case StateAdded:
-			// <h2 class="added title diff-group-name">
-			// <i class="diff-circle diff-circle-added fa fa-circle"></i>
-			// Dashboard loads/1min panel created
-			// </h2>
-			fmt.Fprintf(w.buf, `%s<h2 class="added title diff-group-name">%s`, strings.Repeat(" ", info.GetIndent()*2), "\n")
-			fmt.Fprintf(w.buf, `%s<i class="diff-circle diff-circle-added fa fa-circle"></i>%s`, strings.Repeat(" ", (info.GetIndent()*2)+2), "\n")
-			fmt.Fprintf(w.buf, `%s%v%s`, strings.Repeat(" ", (info.GetIndent()*2)+2), value, "\n")
-			fmt.Fprintf(w.buf, `%s</h2>%s`, strings.Repeat(" ", info.GetIndent()*2), "\n\n")
-			// TODO(line number)???
 
-			// fmt.Printf("%3d| %v created\n", info.GetLine(), value)
-			w.shouldPrint = true
+		case StateAdded, StateDeleted:
+			err := w.tpl.ExecuteTemplate(w.buf, "change", map[string]interface{}{
+				"Change": info.GetEncodingState(),
+				"Value":  value,
+				"Indent": info.GetIndent(),
+			})
+			if err != nil {
+				fmt.Printf("error: %#v\n", err)
+			}
 
-		case StateDeleted:
-			fmt.Fprintf(w.buf, `%s<h2 class="deleted title diff-group-name">%s`, strings.Repeat(" ", info.GetIndent()*2), "\n")
-			fmt.Fprintf(w.buf, `%s<i class="diff-circle diff-circle-deleted fa fa-circle"></i>%s`, strings.Repeat(" ", (info.GetIndent()*2)+2), "\n")
-			fmt.Fprintf(w.buf, `%s%v%s`, strings.Repeat(" ", (info.GetIndent()*2)+2), value, "\n")
-			fmt.Fprintf(w.buf, `%s</h2>%s`, strings.Repeat(" ", info.GetIndent()*2), "\n\n")
-			// TODO(line number)
-
-			// fmt.Printf("%3d| %v deleted\n", info.GetLine(), value)
 			w.shouldPrint = true
 
 		case StateChangedOld:
@@ -107,12 +135,14 @@ func (w *BasicWalker) Walk(value interface{}, info *DeltaInfo, err error) error 
 
 		case StateNil:
 			// need to traverse (TODO)
-			// fmt.Printf("%3d| %v changed\n", info.GetLine(), value)
-
-			fmt.Fprintf(w.buf, `%s<h2 class="changed title diff-group-name">%s`, strings.Repeat(" ", info.GetIndent()*2), "\n")
-			fmt.Fprintf(w.buf, `%s<i class="diff-circle diff-circle-changed fa fa-circle"></i>%s`, strings.Repeat(" ", (info.GetIndent()*2)+2), "\n")
-			fmt.Fprintf(w.buf, `%s%v%s`, strings.Repeat(" ", (info.GetIndent()*2)+2), value, "\n")
-			fmt.Fprintf(w.buf, `%s</h2>%s`, strings.Repeat(" ", info.GetIndent()*2), "\n\n")
+			err := w.tpl.ExecuteTemplate(w.buf, "change", map[string]interface{}{
+				"Change": info.GetEncodingState(),
+				"Value":  value,
+				"Indent": info.GetIndent(),
+			})
+			if err != nil {
+				fmt.Printf("\n\nWhy %#v\n\n", err)
+			}
 
 		}
 	}
@@ -131,11 +161,8 @@ func (w *BasicWalker) clear() {
 
 // this works surprisingly well lol
 func (w *BasicWalker) insertHTML(info *DeltaInfo) {
-
-	// this should be generalized, or at least customized at any level
+	// TODO(ben) this should be generalized, or at least customized at any level
 	if info.GetIndent() == 1 {
-
-		// since this logic is actually good
 		switch w.lastIdent - info.GetIndent() {
 		case -1:
 			fmt.Fprintf(w.buf, `%s<div class="diff-section diff-group">%s`, strings.Repeat(" ", info.GetIndent()*2), "\n")
