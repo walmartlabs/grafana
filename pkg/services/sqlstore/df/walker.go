@@ -10,11 +10,12 @@ import (
 
 var (
 	// tplChange is used to render 1-line deep changes
-	tplChange = `{{ indent .Indent }}<h2 class="{{ getChange .Change }} title diff-group-name">
-{{ indent .Indent }}  <i class="diff-circle diff-circle-{{ getChange .Change }} fa fa-circle"></i>
-{{ indent .Indent }}  {{ title .Value }}
-{{ indent .Indent }}</h2>
-
+	tplChange =`{{ indent .Indent }}<div class="diff-section diff-group">
+{{ indent .Indent }}  <h2 class="{{ getChange .Change }} title diff-group-name">
+{{ indent .Indent }}    <i class="diff-circle diff-circle-{{ getChange .Change }} fa fa-circle"></i>
+{{ indent .Indent }}    <strong>{{ title .Value }}</strong> {{ getChange .Change }}
+{{ indent .Indent }}  </h2>
+{{ indent .Indent }}</div>
 `
 
 	// encStateMap is used in the template helper
@@ -86,7 +87,7 @@ func (w *BasicWalker) Walk(value interface{}, info *DeltaInfo, err error) error 
 			// 		<div class="change list-change diff-label">Postgresql Prod Medusa</div>
 			// 		<a class="change list-linenum diff-linenum btn btn-inverse btn-small">Line 31</a>
 			fmt.Fprintf(w.buf, `%s<div class="change list-change diff-label">%v</div>%s`, strings.Repeat(" ", info.GetIndent()*2), value, "\n")
-			fmt.Fprintf(w.buf, `%s<a class="change list-linenum diff-linenum btn btn-inverse btn-small">Line %d</a>%s`, strings.Repeat(" ", info.GetIndent()*2), info.GetLine(), "\n\n")
+			fmt.Fprintf(w.buf, `%s<a class="change list-linenum diff-linenum btn btn-inverse btn-small">Line %d</a></div>%s`, strings.Repeat(" ", info.GetIndent()*2), info.GetLine(), "\n\n")
 		} else {
 			// hidden for now
 			// fmt.Printf("%3d|%s* %#v\n", info.GetLine(), strings.Repeat(" ", info.GetIndent()*2), value)
@@ -122,7 +123,7 @@ func (w *BasicWalker) Walk(value interface{}, info *DeltaInfo, err error) error 
 			// 	</li>
 			// </ul>
 			// need to open the ul...
-			fmt.Fprintf(w.buf, `%s<div class="change list-title">%v</div>%s`, strings.Repeat(" ", (info.GetIndent()*2)), value, "\n")
+			fmt.Fprintf(w.buf, `%s<div class="diff-section diff-group"><h2 class="changed title diff-group-name"><i class="diff-circle diff-circle-changed fa fa-circle"></i><strong>%s</strong> changed</h2>%s`, strings.Repeat(" ", (info.GetIndent()*2)), strings.Title(value.(string)), "\n")
 
 			// fmt.Printf("%3d| %v changed\n", info.GetLine(), value)
 			w.shouldPrint = true
@@ -165,7 +166,7 @@ func (w *BasicWalker) insertHTML(info *DeltaInfo) {
 	if info.GetIndent() == 1 {
 		switch w.lastIdent - info.GetIndent() {
 		case -1:
-			fmt.Fprintf(w.buf, `%s<div class="diff-section diff-group">%s`, strings.Repeat(" ", info.GetIndent()*2), "\n")
+			fmt.Fprintf(w.buf, `%s<div>%s`, strings.Repeat(" ", info.GetIndent()*2), "\n")
 		case 0:
 		// nothing?
 		case 1:

@@ -156,8 +156,9 @@
 }
 
 .diff-group-name {
+  display: inline-block;
   font-size: $font-size-root;
-  margin-bottom: .5rem;
+  margin-bottom: 0;
 }
 
 .diff-list {
