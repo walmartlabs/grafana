@@ -129,16 +129,18 @@ func (w *BasicWalker) Walk(value interface{}, info *DeltaInfo, err error) error 
 			if valueStr, ok := value.(string); ok {
 				fmt.Fprintf(
 					w.buf,
-					`%s<div class="diff-section diff-group"><h2 class="changed title diff-group-name"><i class="diff-circle diff-circle-changed fa fa-circle"></i><strong>%s</strong> changed</h2>%s`,
+					`%s<div class="diff-section diff-group"><h2 class="changed title diff-group-name"><i class="diff-circle diff-circle-changed fa fa-circle"></i>%s<strong>%s</strong> changed</h2>%s`,
 					strings.Repeat(" ", (info.GetIndent()*2)),
+					" ",
 					strings.Title(valueStr),
 					"\n",
 				)
 			} else {
 				fmt.Fprintf(
 					w.buf,
-					`%s<div class="diff-section diff-group"><h2 class="changed title diff-group-name"><i class="diff-circle diff-circle-changed fa fa-circle"></i><strong>%v</strong> changed</h2>%s`,
+					`%s<div class="diff-section diff-group"><h2 class="changed title diff-group-name"><i class="diff-circle diff-circle-changed fa fa-circle"></i>%s<strong>%v</strong> changed</h2>%s`,
 					strings.Repeat(" ", (info.GetIndent()*2)),
+					" ",
 					value,
 					"\n",
 				)
