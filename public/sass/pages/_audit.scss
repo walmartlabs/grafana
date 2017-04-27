@@ -150,7 +150,10 @@
 
 .diff-group {
   background: $diff-group-bg;
+  font-size: $font-size-root;
+  font-style: normal;
   padding: 10px 15px;
+  margin: 0;
 
   & .diff-group { padding: 0 5px; }
 }
@@ -158,7 +161,8 @@
 .diff-group-name {
   display: inline-block;
   font-size: $font-size-root;
-  margin-bottom: 0;
+  margin-left: 1em;
+  color: $text-muted;
 }
 
 .diff-list {
