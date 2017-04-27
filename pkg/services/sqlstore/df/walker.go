@@ -11,17 +11,50 @@ import (
 var (
 	// tplChange is used to render 1-line deep changes
 	tplChange = `{{ indent .Indent }}<div class="diff-section diff-group">
-{{ indent .Indent }}  <h2 class="{{ getChange .Change }} title diff-group-name">
-{{ indent .Indent }}    <i class="diff-circle diff-circle-{{ getChange .Change }} fa fa-circle"></i>
+{{ indent .Indent }}  <h2 class="{{ getChange .Change }} title diff-group-name muted">
+{{ indent .Indent }}    <i class="diff-circle diff-circle-{{ getChange .Change }} fa fa-circle-o"></i>
 {{ indent .Indent }}    <strong>{{ title .Value }}</strong> {{ getChange .Change }}
 {{ indent .Indent }}  </h2>
+{{ indent .Indent }}  <a class="change list-linenum diff-linenum btn btn-inverse btn-small">Line {{ .Line }}</a>
 {{ indent .Indent }}</div>
+
+`
+
+	// tplTop is used to render the div wrapping a changeset
+	tplTop = `{{ indent .Indent }}<h1 class="diff-group">
+{{ indent .Indent }}  <i class="diff-circle diff-circle-changed fa fa-circle"></i>
+{{ indent .Indent }}  {{ title .Title }}
+{{ indent .Indent }}</h1>
+{{ indent .Indent }}<div class="">
+
+`
+
+	// tplCloseDiv is used to close a div
+	//
+	// we only pass the indent integer value here, so the `.` is that
+	// value
+	tplCloseDiv = `{{ indent . }}</div>
 `
 
 	// encStateMap is used in the template helper
 	encStateMap = map[EncState]string{
 		StateAdded:   "added",
 		StateDeleted: "deleted",
+	}
+
+	// tplFuncMap is the function map for each template
+	tplFuncMap = template.FuncMap{
+		"getChange": func(e EncState) string {
+			state, ok := encStateMap[e]
+			if !ok {
+				return "changed"
+			}
+			return state
+		},
+		"indent": func(indent int) string {
+			return strings.Repeat(" ", indent*2)
+		},
+		"title": strings.Title,
 	}
 )
 
@@ -39,22 +72,9 @@ type BasicWalker struct {
 
 func NewBasicWalker() *BasicWalker {
 	// parse tpls
-	tpl := template.Must(
-		template.New("change").
-			Funcs(template.FuncMap{
-				"getChange": func(e EncState) string {
-					state, ok := encStateMap[e]
-					if !ok {
-						return "changed"
-					}
-					return state
-				},
-				"indent": func(indent int) string {
-					return strings.Repeat(" ", indent*2)
-				},
-				"title": strings.Title,
-			}).
-			Parse(tplChange))
+	tpl := template.Must(template.New("change").Funcs(tplFuncMap).Parse(tplChange))
+	tpl = template.Must(tpl.New("top").Funcs(tplFuncMap).Parse(tplTop))
+	tpl = template.Must(tpl.New("close").Funcs(tplFuncMap).Parse(tplCloseDiv))
 
 	// return object
 	return &BasicWalker{
@@ -105,6 +125,7 @@ func (w *BasicWalker) Walk(value interface{}, info *DeltaInfo, err error) error 
 				"Change": info.GetEncodingState(),
 				"Value":  value,
 				"Indent": info.GetIndent(),
+				"Line":   info.GetLine(),
 			})
 			if err != nil {
 				fmt.Printf("error: %#v\n", err)
@@ -129,7 +150,7 @@ func (w *BasicWalker) Walk(value interface{}, info *DeltaInfo, err error) error 
 			if valueStr, ok := value.(string); ok {
 				fmt.Fprintf(
 					w.buf,
-					`%s<div class="diff-section diff-group"><h2 class="changed title diff-group-name"><i class="diff-circle diff-circle-changed fa fa-circle"></i>%s<strong>%s</strong> changed</h2>%s`,
+					`%s<div class="diff-section diff-group"><h2 class="changed title diff-group-name muted"><i class="diff-circle diff-circle-changed fa fa-circle-o"></i>%s<strong>%s</strong> changed</h2>%s`,
 					strings.Repeat(" ", (info.GetIndent()*2)),
 					" ",
 					strings.Title(valueStr),
@@ -138,7 +159,7 @@ func (w *BasicWalker) Walk(value interface{}, info *DeltaInfo, err error) error 
 			} else {
 				fmt.Fprintf(
 					w.buf,
-					`%s<div class="diff-section diff-group"><h2 class="changed title diff-group-name"><i class="diff-circle diff-circle-changed fa fa-circle"></i>%s<strong>%v</strong> changed</h2>%s`,
+					`%s<div class="diff-section diff-group"><h2 class="changed title diff-group-name muted"><i class="diff-circle diff-circle-changed fa fa-circle-o"></i>%s<strong>%v</strong> changed</h2>%s`,
 					strings.Repeat(" ", (info.GetIndent()*2)),
 					" ",
 					value,
@@ -160,9 +181,10 @@ func (w *BasicWalker) Walk(value interface{}, info *DeltaInfo, err error) error 
 				"Change": info.GetEncodingState(),
 				"Value":  value,
 				"Indent": info.GetIndent(),
+				"Line":   info.GetLine(),
 			})
 			if err != nil {
-				fmt.Printf("\n\nWhy %#v\n\n", err)
+				fmt.Printf("error %v\n", err)
 			}
 
 		}
@@ -183,14 +205,26 @@ func (w *BasicWalker) clear() {
 // this works surprisingly well lol
 func (w *BasicWalker) insertHTML(info *DeltaInfo) {
 	// TODO(ben) this should be generalized, or at least customized at any level
+
 	if info.GetIndent() == 1 {
 		switch w.lastIdent - info.GetIndent() {
 		case -1:
-			fmt.Fprintf(w.buf, `%s<div>%s`, strings.Repeat(" ", info.GetIndent()*2), "\n")
+			err := w.tpl.ExecuteTemplate(w.buf, "top", map[string]interface{}{
+				"Indent": info.GetIndent(),
+				"Title":  "General Dashboard Settings",
+			})
+			if err != nil {
+				fmt.Printf("error: %v\n", err)
+			}
+
 		case 0:
 		// nothing?
+
 		case 1:
-			fmt.Fprintf(w.buf, `%s</div>%s`, strings.Repeat(" ", info.GetIndent()*2), "\n")
+			err := w.tpl.ExecuteTemplate(w.buf, "close", info.GetIndent())
+			if err != nil {
+				fmt.Printf("error: %v\n", err)
+			}
 		}
 	}
 	w.lastIdent = info.GetIndent()
