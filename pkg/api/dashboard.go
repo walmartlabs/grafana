@@ -301,6 +301,7 @@ func GetDashboardVersions(c *middleware.Context) {
 			Id:            dashboardVersion.Id,
 			DashboardId:   dashboardVersion.DashboardId,
 			ParentVersion: dashboardVersion.ParentVersion,
+			RestoredFrom:  dashboardVersion.RestoredFrom,
 			Version:       dashboardVersion.Version,
 			Created:       dashboardVersion.Created,
 			CreatedBy:     creator,

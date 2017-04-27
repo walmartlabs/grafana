@@ -114,8 +114,16 @@ export class AuditLogCtrl {
           checked: false,
           message: (revision => {
             if (revision.message === '') {
-              if (revision.restoredFrom) {
+              if (revision.version === 1) {
+                return 'Dashboard initial save';
+              }
+
+              if (revision.restoredFrom >= 0) {
                 return `Restored from version ${revision.restoredFrom}`;
+              }
+
+              if (revision.parentVersion === 0) {
+                return 'Dashboard overwritten';
               }
             }
             return revision.message;
