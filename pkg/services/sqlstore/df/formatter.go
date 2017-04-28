@@ -2,359 +2,310 @@ package df
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"html/template"
 	"sort"
 	"strings"
 
 	diff "github.com/yudai/gojsondiff"
 )
 
-type Formatter struct {
-	left        interface{}
-	jsonbuf     *bytes.Buffer
-	basicbuf    *bytes.Buffer
-	lines       int
-	indent      int
-	showLines   bool
-	isBasic     bool
-	lastPrinted string
-	symbols     []string
-}
+type ChangeType int
 
-func NewJSONFormatter(left interface{}) *Formatter {
-	return &Formatter{
-		left:        left,
-		jsonbuf:     &bytes.Buffer{},
-		basicbuf:    &bytes.Buffer{},
-		lines:       0,
-		indent:      0,
-		showLines:   true,
-		isBasic:     false,
-		lastPrinted: "",
-		symbols:     []string{},
-	}
-}
+const (
+	ChangeNil ChangeType = iota
+	ChangeAdded
+	ChangeDeleted
+	ChangeOld
+	ChangeNew
+)
 
-func NewBasicFormatter(left interface{}) *Formatter {
-	return &Formatter{
-		left:        left,
-		jsonbuf:     &bytes.Buffer{},
-		basicbuf:    &bytes.Buffer{},
-		lines:       0,
-		indent:      0,
-		showLines:   false,
-		isBasic:     true,
-		lastPrinted: "",
-		symbols:     []string{},
-	}
-}
-
-// Format formats a diff into an array of lines you can print
-func (f *Formatter) Format(df diff.Diff) (string, error) {
-	switch v := f.left.(type) {
-	case map[string]interface{}:
-		f.handleObject(v, df.Deltas())
-
-	case []interface{}:
-		f.handleArray(v, df.Deltas())
-
-	default:
-		return "", fmt.Errorf("expected map[string]interface{} or []interface{} but got %T", f.left)
-
+var (
+	// changeTypeToSymbol is used for populating the terminating characer in
+	// the diff
+	changeTypeToSymbol = map[ChangeType]string{
+		ChangeNil:     "",
+		ChangeAdded:   "+",
+		ChangeDeleted: "-",
+		ChangeOld:     "-",
+		ChangeNew:     "+",
 	}
 
-	if f.isBasic {
-		return f.basicbuf.String(), nil
+	// changeTypeToName is used for populating class names in the diff
+	changeTypeToName = map[ChangeType]string{
+		ChangeNil:     "same",
+		ChangeAdded:   "added",
+		ChangeDeleted: "deleted",
+		ChangeOld:     "old",
+		ChangeNew:     "new",
 	}
-	return f.jsonbuf.String(), nil
-}
+)
 
-func (f *Formatter) handleObject(v map[string]interface{}, deltas []diff.Delta) {
-	f.newline(true, "div")
+var (
+	// tplJSONDiffWrapper is the template that wraps a diff
+	tplJSONDiffWrapper = `{{ define "JSONDiffWrapper" -}}
+<table>
+  <tbody>
+    {{ range $index, $element := . }}
+      {{ template "JSONDiffLine" $element }}
+	{{ end }}
+  </tbody>
+</table>
+{{ end }}`
 
-	sortedKeys := sortKeys(v)
-	for _, key := range sortedKeys {
-		value := v[key]
-		f.handleItem(value, deltas, diff.Name(key))
-	}
+	// tplJSONDiffLine is the template that prints each line in a diff
+	tplJSONDiffLine = `{{ define "JSONDiffLine" -}}
+<tr>
+  <td>{{ .LineNum }}</td>
+  <td>{{ .Indent }}</td>
+  <td class="{{ cton .Change }}">{{ .Text }}</td>
+  <td>{{ ctos .Change }}</td>
+</tr>
+{{ end }}`
+)
 
-	// handle added
-	for _, delta := range deltas {
-		if d, ok := delta.(*diff.Added); ok {
-			// this is the same as `handleItem()`'s handling of the
-			// `*diff.Added` case
-			fmt.Fprintf(f.jsonbuf, "Added\n")
-			fmt.Fprintf(f.basicbuf, `<div class="diff-group-title">
-  <i class="diff-circle diff-circle-added fa fa-circle"></i>
-  Added
-</div>
-`,
-			)
-
-			f.printRecursive(d.Position.String(), d.Value)
+var diffTplFuncs = template.FuncMap{
+	"ctos": func(c ChangeType) string {
+		if symbol, ok := changeTypeToSymbol[c]; ok {
+			return symbol
 		}
-	}
-
-	f.closeline(true, "div")
+		return ""
+	},
+	"cton": func(c ChangeType) string {
+		if name, ok := changeTypeToName[c]; ok {
+			return name
+		}
+		return ""
+	},
 }
 
-func (f *Formatter) handleArray(v []interface{}, deltas []diff.Delta) {
-	f.newline(true, "div")
+type JSONLine struct {
+	LineNum int
+	Indent  int
+	Text    string
+	Change  ChangeType
+}
 
-	for i, value := range v {
-		f.handleItem(value, deltas, diff.Index(i))
+// A formatter only needs to satisfy the `Format` method, which has the definition,
+//
+//		Format(diff diff.Diff) (result string, err error)
+//
+// So that's all we need to do. Ideally, we'd have a custom marshaler.
+// Really though, it's easier just to export a few functions which do everything.
+
+func NewAsciiFormatter(left interface{}, config AsciiFormatterConfig) *AsciiFormatter {
+	tpl := template.Must(template.New("JSONDiffWrapper").Funcs(diffTplFuncs).Parse(tplJSONDiffWrapper))
+	tpl = template.Must(tpl.New("JSONDiffLine").Funcs(diffTplFuncs).Parse(tplJSONDiffLine))
+
+	return &AsciiFormatter{
+		left:   left,
+		config: config,
+		Lines:  []*JSONLine{},
+		tpl:    tpl,
+	}
+}
+
+type AsciiFormatter struct {
+	left      interface{}
+	config    AsciiFormatterConfig
+	buffer    *bytes.Buffer
+	path      []string
+	size      []int
+	inArray   []bool
+	lineCount int
+	line      *AsciiLine
+	Lines     []*JSONLine
+	tpl       *template.Template
+}
+
+func (f *AsciiFormatter) Render() (string, error) {
+	b := &bytes.Buffer{}
+	err := f.tpl.ExecuteTemplate(b, "JSONDiffWrapper", f.Lines)
+	if err != nil {
+		fmt.Println("\n\n", err.(*template.Error).Description, "\n\n")
+		return "", err
+	}
+	return b.String(), nil
+}
+
+type AsciiFormatterConfig struct {
+	ShowArrayIndex bool
+	Coloring       bool
+}
+
+var AsciiFormatterDefaultConfig = AsciiFormatterConfig{}
+
+type AsciiLine struct {
+	change ChangeType
+	indent int
+	buffer *bytes.Buffer
+}
+
+func (f *AsciiFormatter) Format(diff diff.Diff) (result string, err error) {
+	f.buffer = bytes.NewBuffer([]byte{})
+	f.path = []string{}
+	f.size = []int{}
+	f.lineCount = 0
+	f.inArray = []bool{}
+
+	if v, ok := f.left.(map[string]interface{}); ok {
+		f.formatObject(v, diff)
+	} else if v, ok := f.left.([]interface{}); ok {
+		f.formatArray(v, diff)
+	} else {
+		return "", fmt.Errorf("expected map[string]interface{} or []interface{}, got %T",
+			f.left)
 	}
 
-	// handle added
+	return f.buffer.String(), nil
+}
+
+func (f *AsciiFormatter) formatObject(left map[string]interface{}, df diff.Diff) {
+	f.addLineWith(ChangeNil, "{")
+	f.push("ROOT", len(left), false)
+	f.processObject(left, df.Deltas())
+	f.pop()
+	f.addLineWith(ChangeNil, "}")
+}
+
+func (f *AsciiFormatter) formatArray(left []interface{}, df diff.Diff) {
+	f.addLineWith(ChangeNil, "[")
+	f.push("ROOT", len(left), true)
+	f.processArray(left, df.Deltas())
+	f.pop()
+	f.addLineWith(ChangeNil, "]")
+}
+
+func (f *AsciiFormatter) processArray(array []interface{}, deltas []diff.Delta) error {
+	patchedIndex := 0
+	for index, value := range array {
+		f.processItem(value, deltas, diff.Index(index))
+		patchedIndex++
+	}
+
+	// additional Added
 	for _, delta := range deltas {
-		if d, ok := delta.(*diff.Added); ok {
-			// skip already processed
-			if int(d.Position.(diff.Index)) < len(v) {
+		switch delta.(type) {
+		case *diff.Added:
+			d := delta.(*diff.Added)
+			// skip items already processed
+			if int(d.Position.(diff.Index)) < len(array) {
 				continue
 			}
-			// don't show the position here since it's the index and is
-			// confusing
-			fmt.Fprintf(f.jsonbuf, "Added\n")
-			fmt.Fprintf(f.basicbuf, `<div class="diff-group-title">
-  <i class="diff-circle diff-circle-added fa fa-circle"></i>
-  Added
-</div>
-`,
-			)
-
-			f.printRecursive("", d.Value)
+			f.printRecursive(d.Position.String(), d.Value, ChangeAdded)
 		}
-	}
-
-	f.closeline(true, "div")
-}
-
-func (f *Formatter) handleItem(v interface{}, deltas []diff.Delta, pos diff.Position) error {
-	// matchedDeltas are all the deltas containing changes
-	matchedDeltas := f.searchDeltas(deltas, pos)
-	posStr := pos.String()
-
-	// check matches
-	if len(matchedDeltas) > 0 {
-		for _, match := range matchedDeltas {
-
-			switch d := match.(type) {
-			case *diff.Object:
-				object, ok := v.(map[string]interface{})
-				if !ok {
-					return fmt.Errorf("type mismatch: expected map[string]interface{} but got %T", v)
-				}
-
-				fmt.Fprintf(f.basicbuf, `<div>`)
-				f.printKey(posStr)
-				fmt.Fprintf(f.basicbuf, `</div>`)
-
-				fmt.Fprintf(f.basicbuf, `<ul class="diff-list">`)
-				f.handleObject(object, d.Deltas)
-				fmt.Fprintf(f.basicbuf, `</ul>`)
-
-			case *diff.Array:
-				array, ok := v.([]interface{})
-				if !ok {
-					return fmt.Errorf("type mismatch: expected []interface{} but got %T", v)
-				}
-
-				fmt.Fprintf(f.basicbuf, `<div>`) // TODO(ben) color this correctly
-				f.printKey(posStr)
-				fmt.Fprintf(f.basicbuf, `</div>`)
-
-				fmt.Fprintf(f.basicbuf, `<ul class="diff-list">`)
-				f.handleArray(array, d.Deltas)
-				fmt.Fprintf(f.basicbuf, `</ul>`)
-
-			case *diff.Added:
-				fmt.Fprintf(f.jsonbuf, "Added\n")
-				fmt.Fprintf(f.basicbuf, `<div class="diff-group-title">
-  <i class="diff-circle diff-circle-added fa fa-circle"></i>
-  Added
-</div>
-`,
-				)
-
-				f.printRecursive(posStr, d.Value)
-
-			case *diff.Modified:
-				fmt.Fprintf(f.jsonbuf, "Modified\n")
-				fmt.Fprintf(f.basicbuf, `<div class="diff-group-title">
-  <i class="diff-circle diff-circle-changed fa fa-circle"></i>
-  Changed
-</div>
-`,
-				)
-
-				f.printRecursive(posStr, d.OldValue)
-				f.printRecursive(posStr, d.NewValue)
-
-			case *diff.TextDiff:
-				fmt.Fprintf(f.jsonbuf, "Text diff\n")
-				fmt.Fprintf(f.basicbuf, `<div class="diff-group-title">
-  <i class="diff-circle diff-circle-changed fa fa-circle"></i>
-  Changed
-</div>
-`,
-				)
-
-				f.printRecursive(posStr, d.OldValue)
-				f.printRecursive(posStr, d.NewValue)
-
-			case *diff.Deleted:
-				fmt.Fprintf(f.jsonbuf, "Deleted\n")
-				fmt.Fprintf(f.basicbuf, `<div class="diff-group-title">
-  <i class="diff-circle diff-circle-deleted fa fa-circle"></i>
-  Changed
-</div>
-`,
-				)
-
-				f.printRecursive(posStr, d.Value)
-
-			default:
-				return fmt.Errorf("Unknown error type: %T", d)
-			}
-		}
-	} else {
-		// check unchanged delta
 	}
 
 	return nil
 }
 
-// printRecursive is called when there are no more deltas to process for the
-// given value, so we know we can just print it
-func (f *Formatter) printRecursive(name string, value interface{}) {
-	switch v := value.(type) {
-	case map[string]interface{}:
-		f.printKey(name)
-		f.newline(true, "div")
-		fmt.Fprintf(f.basicbuf, `<ul class="diff-list">`)
+func (f *AsciiFormatter) processObject(object map[string]interface{}, deltas []diff.Delta) error {
+	names := sortKeys(object)
+	for _, name := range names {
+		value := object[name]
+		f.processItem(value, deltas, diff.Name(name))
+	}
 
-		keys := sortKeys(v)
-		for _, key := range keys {
-			f.printRecursive(key, v[key])
+	// Added
+	for _, delta := range deltas {
+		switch delta.(type) {
+		case *diff.Added:
+			d := delta.(*diff.Added)
+			f.printRecursive(d.Position.String(), d.Value, ChangeAdded)
 		}
+	}
 
-		f.closeline(true, "div")
-		fmt.Fprintf(f.basicbuf, `</ul>`)
+	return nil
+}
 
-	case []interface{}:
-		f.printKey(name)
-		f.newline(true, "div")
-		fmt.Fprintf(f.basicbuf, `<ul class="diff-list">`)
+func (f *AsciiFormatter) processItem(value interface{}, deltas []diff.Delta, position diff.Position) error {
+	matchedDeltas := f.searchDeltas(deltas, position)
+	positionStr := position.String()
+	if len(matchedDeltas) > 0 {
+		for _, matchedDelta := range matchedDeltas {
 
-		for _, item := range v {
-			// like handleArray, we don't show the index since it's weird
-			f.printRecursive("", item)
-		}
+			switch matchedDelta.(type) {
+			case *diff.Object:
+				d := matchedDelta.(*diff.Object)
+				switch value.(type) {
+				case map[string]interface{}:
+					//ok
+				default:
+					return errors.New("Type mismatch")
+				}
+				o := value.(map[string]interface{})
 
-		f.closeline(true, "div")
-		fmt.Fprintf(f.basicbuf, `</ul>`)
+				f.newLine(ChangeNil)
+				f.printKey(positionStr)
+				f.print("{")
+				f.closeLine()
+				f.push(positionStr, len(o), false)
+				f.processObject(o, d.Deltas)
+				f.pop()
+				f.newLine(ChangeNil)
+				f.print("}")
+				f.printComma()
+				f.closeLine()
 
-	default:
-		// if keys are the same, don't print a second time in the basic diff,
-		// instead, print the arrow
-		if f.isBasic {
-			if f.lastPrinted != name {
-				fmt.Fprintf(f.basicbuf, `<li class="diff-item">`)
-				f.printKey(name)
-			} else {
-				fmt.Fprintf(f.basicbuf, `<i class="diff-arrow fa fa-long-arrow-right"></i>`)
+			case *diff.Array:
+				d := matchedDelta.(*diff.Array)
+				switch value.(type) {
+				case []interface{}:
+					//ok
+				default:
+					return errors.New("Type mismatch")
+				}
+				a := value.([]interface{})
+
+				f.newLine(ChangeNil)
+				f.printKey(positionStr)
+				f.print("[")
+				f.closeLine()
+				f.push(positionStr, len(a), true)
+				f.processArray(a, d.Deltas)
+				f.pop()
+				f.newLine(ChangeNil)
+				f.print("]")
+				f.printComma()
+				f.closeLine()
+
+			case *diff.Added:
+				d := matchedDelta.(*diff.Added)
+				f.printRecursive(positionStr, d.Value, ChangeAdded)
+				f.size[len(f.size)-1]++
+
+			case *diff.Modified:
+				d := matchedDelta.(*diff.Modified)
+				savedSize := f.size[len(f.size)-1]
+				f.printRecursive(positionStr, d.OldValue, ChangeOld)
+				f.size[len(f.size)-1] = savedSize
+				f.printRecursive(positionStr, d.NewValue, ChangeNew)
+
+			case *diff.TextDiff:
+				savedSize := f.size[len(f.size)-1]
+				d := matchedDelta.(*diff.TextDiff)
+				f.printRecursive(positionStr, d.OldValue, ChangeOld)
+				f.size[len(f.size)-1] = savedSize
+				f.printRecursive(positionStr, d.NewValue, ChangeNew)
+
+			case *diff.Deleted:
+				d := matchedDelta.(*diff.Deleted)
+				f.printRecursive(positionStr, d.Value, ChangeDeleted)
+
+			default:
+				return errors.New("Unknown Delta type detected")
 			}
-			f.lastPrinted = name
 
-			f.printValue(value)
-			f.newline(false, "")
-
-		} else {
-			fmt.Fprintf(f.basicbuf, `<li class="diff-item">`)
-			f.printKey(name)
-			f.printValue(value)
-			f.newline(false, "")
-			fmt.Fprintf(f.basicbuf, `</li>`)
 		}
+	} else {
+		f.printRecursive(positionStr, value, ChangeNil)
 	}
+
+	return nil
 }
 
-// printKey is responsible for printing keys
-func (f *Formatter) printKey(name string) {
-	if f.showLines {
-		fmt.Fprintf(f.jsonbuf, "%3d", f.lines)
-		fmt.Fprintf(f.basicbuf, `<span>%d</span>`, f.lines)
-	}
-	fmt.Fprintf(f.jsonbuf, "%s", f.getIndent())
-	fmt.Fprintf(f.jsonbuf, "%s", name)
-
-	// TODO(ben) figure out basic diff
-	fmt.Fprintf(f.basicbuf, "%s", f.getIndent())
-	fmt.Fprintf(f.basicbuf, `<span class="diff-item">%s</span>`, name)
-}
-
-// printValue is responsible for printing values
-//
-// TODO(ben) need proper seperator instead of a space...
-func (f *Formatter) printValue(value interface{}) {
-	switch value.(type) {
-	case string:
-		fmt.Fprintf(f.jsonbuf, " ")
-		fmt.Fprintf(f.jsonbuf, `"%s"`, value)
-
-		fmt.Fprintf(f.basicbuf, `<span class="diff-label">%s</span><span style="float:right">Line %d </span><span style="overflow:auto"></span>`, value, f.lines)
-	case nil:
-		fmt.Fprintf(f.jsonbuf, " ")
-		fmt.Fprintf(f.jsonbuf, "null")
-
-		fmt.Fprintf(f.basicbuf, `<span class="diff-label">null</span><span style="float:right">Line %d </span><span style="overflow:auto"></span>`, f.lines)
-
-	default:
-		fmt.Fprintf(f.jsonbuf, " ")
-		fmt.Fprintf(f.jsonbuf, "%#v", value)
-
-		fmt.Fprintf(f.basicbuf, `<span class="diff-label">%v</span><span style="float:right">Line %d </span><span style="overflow:auto"></span>`, value, f.lines)
-	}
-}
-
-func (f *Formatter) newline(indent bool, html string) {
-	f.lines++
-
-	// Basic diff only
-	if indent {
-		fmt.Fprintf(f.basicbuf, "<%s>", html)
-	}
-
-	fmt.Fprintf(f.jsonbuf, "\n")
-	fmt.Fprintf(f.basicbuf, "\n") // TODO(ben) basic diff
-
-	if indent {
-		f.indent++
-	}
-}
-
-func (f *Formatter) closeline(unindent bool, html string) {
-	f.lines++
-
-	// Basic diff only
-	if unindent {
-		fmt.Fprintf(f.basicbuf, "</%s>", html)
-	}
-
-	if f.showLines {
-		fmt.Fprintf(f.jsonbuf, "%3d", f.lines)
-		fmt.Fprintf(f.basicbuf, `<span>%d</span>`, f.lines)
-	}
-
-	fmt.Fprintf(f.jsonbuf, "\n")
-	fmt.Fprintf(f.basicbuf, "\n")
-
-	if unindent {
-		f.indent--
-	}
-}
-
-func (f *Formatter) searchDeltas(deltas []diff.Delta, postion diff.Position) (results []diff.Delta) {
+func (f *AsciiFormatter) searchDeltas(deltas []diff.Delta, postion diff.Position) (results []diff.Delta) {
 	results = make([]diff.Delta, 0)
 	for _, delta := range deltas {
 		switch delta.(type) {
@@ -367,21 +318,138 @@ func (f *Formatter) searchDeltas(deltas []diff.Delta, postion diff.Position) (re
 				results = append(results, delta)
 			}
 		default:
-			panic("why is programming like this")
+			panic("heh")
 		}
 	}
 	return
 }
 
-func (f *Formatter) getIndent() string {
-	return strings.Repeat(" ", 2*f.indent)
+func (f *AsciiFormatter) push(name string, size int, array bool) {
+	f.path = append(f.path, name)
+	f.size = append(f.size, size)
+	f.inArray = append(f.inArray, array)
 }
 
-func sortKeys(v map[string]interface{}) []string {
-	keys := make([]string, 0, len(v))
-	for k := range v {
-		keys = append(keys, k)
+func (f *AsciiFormatter) pop() {
+	f.path = f.path[0 : len(f.path)-1]
+	f.size = f.size[0 : len(f.size)-1]
+	f.inArray = f.inArray[0 : len(f.inArray)-1]
+}
+
+func (f *AsciiFormatter) addLineWith(change ChangeType, value string) {
+	f.line = &AsciiLine{
+		change: change,
+		indent: len(f.path),
+		buffer: bytes.NewBufferString(value),
+	}
+	f.closeLine()
+}
+
+func (f *AsciiFormatter) newLine(change ChangeType) {
+	f.line = &AsciiLine{
+		change: change,
+		indent: len(f.path),
+		buffer: bytes.NewBuffer([]byte{}),
+	}
+}
+
+func (f *AsciiFormatter) closeLine() {
+	// TODO(ben) count left vs right
+	f.lineCount++
+	f.Lines = append(f.Lines, &JSONLine{
+		LineNum: f.lineCount,
+		Indent:  f.line.indent,
+		Text:    strings.Repeat("  ", f.line.indent) + f.line.buffer.String(),
+		Change:  f.line.change,
+	})
+}
+
+func (f *AsciiFormatter) printKey(name string) {
+	if !f.inArray[len(f.inArray)-1] {
+		fmt.Fprintf(f.line.buffer, `"%s": `, name)
+	} else if f.config.ShowArrayIndex {
+		fmt.Fprintf(f.line.buffer, `%s: `, name)
+	}
+}
+
+func (f *AsciiFormatter) printComma() {
+	f.size[len(f.size)-1]--
+	if f.size[len(f.size)-1] > 0 {
+		f.line.buffer.WriteRune(',')
+	}
+}
+
+func (f *AsciiFormatter) printValue(value interface{}) {
+	switch value.(type) {
+	case string:
+		fmt.Fprintf(f.line.buffer, `"%s"`, value)
+	case nil:
+		f.line.buffer.WriteString("null")
+	default:
+		fmt.Fprintf(f.line.buffer, `%#v`, value)
+	}
+}
+
+func (f *AsciiFormatter) print(a string) {
+	f.line.buffer.WriteString(a)
+}
+
+func (f *AsciiFormatter) printRecursive(name string, value interface{}, change ChangeType) {
+	switch value.(type) {
+	case map[string]interface{}:
+		f.newLine(change)
+		f.printKey(name)
+		f.print("{")
+		f.closeLine()
+
+		m := value.(map[string]interface{})
+		size := len(m)
+		f.push(name, size, false)
+
+		keys := sortKeys(m)
+		for _, key := range keys {
+			f.printRecursive(key, m[key], change)
+		}
+		f.pop()
+
+		f.newLine(change)
+		f.print("}")
+		f.printComma()
+		f.closeLine()
+
+	case []interface{}:
+		f.newLine(change)
+		f.printKey(name)
+		f.print("[")
+		f.closeLine()
+
+		s := value.([]interface{})
+		size := len(s)
+		f.push("", size, true)
+		for _, item := range s {
+			f.printRecursive("", item, change)
+		}
+		f.pop()
+
+		f.newLine(change)
+		f.print("]")
+		f.printComma()
+		f.closeLine()
+
+	default:
+		f.newLine(change)
+		f.printKey(name)
+		f.printValue(value)
+		f.printComma()
+		f.closeLine()
+	}
+}
+
+func sortKeys(m map[string]interface{}) (keys []string) {
+	keys = make([]string, 0, len(m))
+	for key := range m {
+		keys = append(keys, key)
 	}
 	sort.Strings(keys)
-	return keys
+	return
 }
