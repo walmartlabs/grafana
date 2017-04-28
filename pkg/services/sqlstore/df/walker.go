@@ -15,7 +15,7 @@ var (
 {{ indent .Indent }}    <i class="diff-circle diff-circle-{{ getChange .Change }} fa fa-circle-o"></i>
 {{ indent .Indent }}    <strong>{{ title .Value }}</strong> {{ getChange .Change }}
 {{ indent .Indent }}  </h2>
-{{ indent .Indent }}  <a class="change list-linenum diff-linenum btn btn-inverse btn-small">Line {{ .Line }}</a>
+{{ indent .Indent }}  <a data-linenum="{{ .Line }}" class="change list-linenum diff-linenum btn btn-inverse btn-small">Line {{ .Line }}</a>
 {{ indent .Indent }}</div>
 
 `
@@ -107,7 +107,7 @@ func (w *BasicWalker) Walk(value interface{}, info *DeltaInfo, err error) error 
 			// 		<div class="change list-change diff-label">Postgresql Prod Medusa</div>
 			// 		<a class="change list-linenum diff-linenum btn btn-inverse btn-small">Line 31</a>
 			fmt.Fprintf(w.buf, `%s<div class="change list-change diff-label">%v</div>%s`, strings.Repeat(" ", info.GetIndent()*2), value, "\n")
-			fmt.Fprintf(w.buf, `%s<a class="change list-linenum diff-linenum btn btn-inverse btn-small">Line %d</a></div>%s`, strings.Repeat(" ", info.GetIndent()*2), info.GetLine(), "\n\n")
+			fmt.Fprintf(w.buf, `%s<a data-linenum="%d" class="change list-linenum diff-linenum btn btn-inverse btn-small">Line %d</a></div>%s`, strings.Repeat(" ", info.GetIndent()*2), info.GetLine(), info.GetLine(), "\n\n")
 		} else {
 			// hidden for now
 			// fmt.Printf("%3d|%s* %#v\n", info.GetLine(), strings.Repeat(" ", info.GetIndent()*2), value)
