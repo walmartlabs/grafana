@@ -45,25 +45,25 @@ var (
 var (
 	// tplJSONDiffWrapper is the template that wraps a diff
 	tplJSONDiffWrapper = `{{ define "JSONDiffWrapper" -}}
-<table>
-  <tbody>
-    {{ range $index, $element := . }}
-      {{ template "JSONDiffLine" $element }}
+	{{ range $index, $element := . }}
+		{{ template "JSONDiffLine" $element }}
 	{{ end }}
-  </tbody>
-</table>
 {{ end }}`
 
 	// tplJSONDiffLine is the template that prints each line in a diff
 	tplJSONDiffLine = `{{ define "JSONDiffLine" -}}
-<tr>
-  <td>{{ .LineNum }}</td>
-  <td><strong>{{if .LeftLine }}{{ .LeftLine }}{{ end }}</strong></td>
-  <td><strong>{{if .RightLine }}{{ .RightLine }}{{ end }}</strong></td>
-  <td>{{ .Indent }}</td>
-  <td class="{{ cton .Change }}">{{ indent .Indent }}{{ .Text }}</td>
-  <td>{{ ctos .Change }}</td>
-</tr>
+<p id="l{{ .LineNum }}" class="diff-line diff-json-{{ cton .Change }}">
+	<span class="diff-line-number" ng-class="{'diff-line-number-hide': {{ cton .Change }} === 'new'}">
+		{{ .LineNum }}
+	</span>
+	<span class="diff-line-number" ng-class="{'diff-line-number-hide': {{ cton .Change }} === 'old'}">
+		{{ .LineNum }}
+	</span>
+	<span class="diff-value diff-indent-{{ .Indent }}" title="{{ .Text }}">
+		{{ .Text }}
+	</span>
+	<span class="diff-line-icon">{{ ctos .Change }}</span>
+</p>
 {{ end }}`
 )
 
@@ -79,9 +79,6 @@ var diffTplFuncs = template.FuncMap{
 			return name
 		}
 		return ""
-	},
-	"indent": func(indent int) string {
-		return strings.Repeat("  ", indent)
 	},
 }
 

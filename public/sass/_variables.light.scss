@@ -317,6 +317,10 @@ $diff-group-bg:         $gray-7;
 
 $diff-json-bg:          $gray-5;
 $diff-json-fg:          $gray-2;
+
 $diff-json-added:       lighten(desaturate($green, 30%), 10%);
 $diff-json-deleted:     desaturate($red, 35%);
+
 $diff-json-changed-fg:  $gray-6;
+$diff-json-changed-num: $gray-4;
+$diff-json-icon:        $gray-4;

@@ -27,6 +27,7 @@ export class AuditLogCtrl {
   constructor(private $scope,
               private $rootScope,
               private $window,
+              private $q,
               private contextSrv,
               private auditSrv) {
     $scope.ctrl = this;
@@ -83,9 +84,11 @@ export class AuditLogCtrl {
 
   getDiff(diff: string) {
     if (!this.isComparable()) { return; } // disable button but not tooltip
+
     this.diff = diff;
     this.mode = 'compare';
     this.loading = true;
+
     // instead of using lodash to find min/max we use the index
     // due to the array being sorted in ascending order
     const compare = {
@@ -95,7 +98,7 @@ export class AuditLogCtrl {
 
     if (this.delta[this.diff]) {
       this.loading = false;
-      return this.delta[this.diff];
+      return this.$q.when(this.delta[this.diff]);;
     } else {
       return this.auditSrv.compareVersions(this.dashboard, compare, diff).then(response => {
         this.delta[this.diff] = response;
