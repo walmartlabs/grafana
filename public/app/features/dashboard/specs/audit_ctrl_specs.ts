@@ -10,7 +10,6 @@ describe('AuditLogCtrl', function() {
 
   var ctx: any = {};
   var versionsResponse: any = versions();
-  var compareResponse: any = compare();
   var restoreResponse: any = restore(7, RESTORE_ID);
 
   beforeEach(angularMocks.module('grafana.core'));
@@ -58,7 +57,7 @@ describe('AuditLogCtrl', function() {
 
       it('should reset the controller\'s state', function() {
         expect(ctx.ctrl.mode).to.be('list');
-        expect(ctx.ctrl.delta).to.be('');
+        expect(ctx.ctrl.delta).to.eql({ basic: '', html: '' });
         expect(ctx.ctrl.selected.length).to.be(0);
         expect(ctx.ctrl.selected).to.eql([]);
         expect(_.find(ctx.ctrl.revisions, rev => rev.checked)).to.be.undefined;
@@ -113,7 +112,7 @@ describe('AuditLogCtrl', function() {
 
       it('should reset the controller\'s state', function() {
         expect(ctx.ctrl.mode).to.be('list');
-        expect(ctx.ctrl.delta).to.be('');
+        expect(ctx.ctrl.delta).to.eql({ basic: '', html: '' });
         expect(ctx.ctrl.selected.length).to.be(0);
         expect(ctx.ctrl.selected).to.eql([]);
         expect(_.find(ctx.ctrl.revisions, rev => rev.checked)).to.be.undefined;
@@ -195,21 +194,66 @@ describe('AuditLogCtrl', function() {
       expect(ctx.ctrl.isComparable()).to.be(false);
     });
 
-    describe('and the diff is successfully fetched', function() {
+    describe('and the basic diff is successfully fetched', function() {
       beforeEach(function() {
-        deferred.resolve(compareResponse);
+        deferred.resolve(compare('basic'));
         ctx.ctrl.selected = [3, 1];
         ctx.ctrl.getDiff('basic');
         ctx.ctrl.$scope.$apply();
       });
 
-      it('should fetch the diff if two valid versions are selected', function() {
+      it('should fetch the basic diff if two valid versions are selected', function() {
         expect(auditSrv.compareVersions.calledOnce).to.be(true);
-        expect(ctx.ctrl.delta).to.eql(compareResponse);
+        expect(ctx.ctrl.delta.basic).to.be('<div></div>');
+        expect(ctx.ctrl.delta.html).to.be('');
       });
 
-      it('should set the diff view as active', function() {
+      it('should set the basic diff view as active', function() {
         expect(ctx.ctrl.mode).to.be('compare');
+        expect(ctx.ctrl.diff).to.be('basic');
+      });
+
+      it('should indicate loading has finished', function() {
+        expect(ctx.ctrl.loading).to.be(false);
+      });
+    });
+
+    describe('and the json diff is successfully fetched', function() {
+      beforeEach(function() {
+        deferred.resolve(compare('html'));
+        ctx.ctrl.selected = [3, 1];
+        ctx.ctrl.getDiff('html');
+        ctx.ctrl.$scope.$apply();
+      });
+
+      it('should fetch the json diff if two valid versions are selected', function() {
+        expect(auditSrv.compareVersions.calledOnce).to.be(true);
+        expect(ctx.ctrl.delta.basic).to.be('');
+        expect(ctx.ctrl.delta.html).to.be('<pre><code></code></pre>');
+      });
+
+      it('should set the json diff view as active', function() {
+        expect(ctx.ctrl.mode).to.be('compare');
+        expect(ctx.ctrl.diff).to.be('html');
+      });
+
+      it('should indicate loading has finished', function() {
+        expect(ctx.ctrl.loading).to.be(false);
+      });
+    });
+
+    describe('and diffs have already been fetched', function() {
+      beforeEach(function() {
+        deferred.resolve(compare('basic'));
+        ctx.ctrl.selected = [3, 1];
+        ctx.ctrl.delta.basic = 'cached basic';
+        ctx.ctrl.getDiff('basic');
+        ctx.ctrl.$scope.$apply();
+      });
+
+      it('should use the cached diffs instead of fetching', function() {
+        expect(auditSrv.compareVersions.calledOnce).to.be(false);
+        expect(ctx.ctrl.delta.basic).to.be('cached basic');
       });
 
       it('should indicate loading has finished', function() {
@@ -227,7 +271,6 @@ describe('AuditLogCtrl', function() {
 
       it('should fetch the diff if two valid versions are selected', function() {
         expect(auditSrv.compareVersions.calledOnce).to.be(true);
-        expect(ctx.ctrl.delta).to.be('');
       });
 
       it('should return to the audit log view', function() {
@@ -244,7 +287,7 @@ describe('AuditLogCtrl', function() {
       });
 
       it('should have an empty delta/changeset', function() {
-        expect(ctx.ctrl.delta).to.be('');
+        expect(ctx.ctrl.delta).to.eql({ basic: '', html: '' });
       });
     });
   });
@@ -330,7 +373,7 @@ describe('AuditLogCtrl', function() {
 
       it('should reset the controller\'s state', function() {
         expect(ctx.ctrl.mode).to.be('list');
-        expect(ctx.ctrl.delta).to.be('');
+        expect(ctx.ctrl.delta).to.eql({ basic: '', html: '' });
         expect(ctx.ctrl.selected.length).to.be(0);
         expect(ctx.ctrl.selected).to.eql([]);
         expect(_.find(ctx.ctrl.revisions, rev => rev.checked)).to.be.undefined;

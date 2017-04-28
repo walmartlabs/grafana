@@ -12,7 +12,7 @@ import {AuditLogOpts, RevisionsModel} from './models';
 export class AuditLogCtrl {
   appending: boolean;
   dashboard: DashboardModel;
-  delta: string;
+  delta: { basic: string; html: string; };
   diff: string;
   limit: number;
   loading: boolean;
@@ -92,12 +92,18 @@ export class AuditLogCtrl {
       new: this.selected[1],
       original: this.selected[0],
     };
-    return this.auditSrv.compareVersions(this.dashboard, compare, diff).then(response => {
-      this.delta = response;
-    }).catch(err => {
-      this.mode = 'list';
-      this.$rootScope.appEvent('alert-error', ['There was an error fetching the diff', (err.message || err)]);
-    }).finally(() => { this.loading = false; });
+
+    if (this.delta[this.diff]) {
+      this.loading = false;
+      return this.delta[this.diff];
+    } else {
+      return this.auditSrv.compareVersions(this.dashboard, compare, diff).then(response => {
+        this.delta[this.diff] = response;
+      }).catch(err => {
+        this.mode = 'list';
+        this.$rootScope.appEvent('alert-error', ['There was an error fetching the diff', (err.message || err)]);
+      }).finally(() => { this.loading = false; });
+    }
   }
 
   getLog(append = false) {
@@ -166,7 +172,7 @@ export class AuditLogCtrl {
   }
 
   reset() {
-    this.delta = '';
+    this.delta = { basic: '', html: '' };
     this.diff = 'basic';
     this.mode = 'list';
     this.revisions = _.map(this.revisions, rev => _.extend({}, rev, { checked: false }));
