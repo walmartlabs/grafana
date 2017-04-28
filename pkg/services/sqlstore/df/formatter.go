@@ -59,7 +59,7 @@ var (
 <tr>
   <td>{{ .LineNum }}</td>
   <td>{{ .Indent }}</td>
-  <td class="{{ cton .Change }}">{{ .Text }}</td>
+  <td class="{{ cton .Change }}">{{ indent .Indent }}{{ .Text }}</td>
   <td>{{ ctos .Change }}</td>
 </tr>
 {{ end }}`
@@ -77,6 +77,9 @@ var diffTplFuncs = template.FuncMap{
 			return name
 		}
 		return ""
+	},
+	"indent": func(indent int) string {
+		return strings.Repeat("  ", indent)
 	},
 }
 
