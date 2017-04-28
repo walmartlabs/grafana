@@ -68,14 +68,15 @@ describe('AuditLogCtrl', function() {
       });
 
       it('should store the revisions sorted desc by version id', function() {
-        expect(ctx.ctrl.revisions[0].version).to.be(3);
-        expect(ctx.ctrl.revisions[1].version).to.be(2);
-        expect(ctx.ctrl.revisions[2].version).to.be(1);
+        expect(ctx.ctrl.revisions[0].version).to.be(4);
+        expect(ctx.ctrl.revisions[1].version).to.be(3);
+        expect(ctx.ctrl.revisions[2].version).to.be(2);
+        expect(ctx.ctrl.revisions[3].version).to.be(1);
       });
 
       it('should add a checked property to each revision', function() {
         var actual = _.filter(ctx.ctrl.revisions, rev => rev.hasOwnProperty('checked'));
-        expect(actual.length).to.be(3);
+        expect(actual.length).to.be(4);
       });
 
       it('should set all checked properties to false on reset', function() {
@@ -84,23 +85,24 @@ describe('AuditLogCtrl', function() {
         ctx.ctrl.selected = [0, 2];
         ctx.ctrl.reset();
         var actual = _.filter(ctx.ctrl.revisions, rev => !rev.checked);
-        expect(actual.length).to.be(3);
+        expect(actual.length).to.be(4);
         expect(ctx.ctrl.selected).to.eql([]);
       });
 
-      it('should add a message to the initial dashboard save', function() {
-        var oldVersion = ctx.ctrl.revisions[2].version;
-        ctx.ctrl.revisions[2].version = 1;
-        expect(ctx.ctrl.revisions[2].message).to.be('Dashboard initial save');
-        ctx.ctrl.revisions[2].version = oldVersion;
+      it('should add a default message to versions without a message', function() {
+        expect(ctx.ctrl.revisions[0].message).to.be('Dashboard saved');
       });
 
       it('should add a message to revisions restored from another version', function() {
-        expect(ctx.ctrl.revisions[0].message).to.be('Restored from version 1');
+        expect(ctx.ctrl.revisions[1].message).to.be('Restored from version 1');
       });
 
       it('should add a message to entries that overwrote version history', function() {
-        expect(ctx.ctrl.revisions[1].message).to.be('Dashboard overwritten');
+        expect(ctx.ctrl.revisions[2].message).to.be('Dashboard overwritten');
+      });
+
+      it('should add a message to the initial dashboard save', function() {
+        expect(ctx.ctrl.revisions[3].message).to.be('Dashboard\'s initial save');
       });
     });
 
@@ -182,15 +184,15 @@ describe('AuditLogCtrl', function() {
       expect(ctx.ctrl.isComparable()).to.be(false);
 
       // single value
-      ctx.ctrl.selected = [3];
+      ctx.ctrl.selected = [4];
       expect(ctx.ctrl.isComparable()).to.be(false);
 
       // both values in range
-      ctx.ctrl.selected = [3, 1];
+      ctx.ctrl.selected = [4, 2];
       expect(ctx.ctrl.isComparable()).to.be(true);
 
       // values out of range
-      ctx.ctrl.selected = [6, 4];
+      ctx.ctrl.selected = [7, 4];
       expect(ctx.ctrl.isComparable()).to.be(false);
     });
 
@@ -264,7 +266,7 @@ describe('AuditLogCtrl', function() {
     describe('and fetching the diff fails', function() {
       beforeEach(function() {
         deferred.reject(new Error('DiffError'));
-        ctx.ctrl.selected = [3, 1];
+        ctx.ctrl.selected = [4, 2];
         ctx.ctrl.getDiff('basic');
         ctx.ctrl.$scope.$apply();
       });
@@ -338,7 +340,7 @@ describe('AuditLogCtrl', function() {
       });
 
       it('should add an entry for the restored revision to the audit log', function() {
-        expect(ctx.ctrl.revisions.length).to.be(4);
+        expect(ctx.ctrl.revisions.length).to.be(5);
       });
 
       describe('the restored revision', function() {
@@ -346,8 +348,8 @@ describe('AuditLogCtrl', function() {
         beforeEach(function() { first = ctx.ctrl.revisions[0]; });
 
         it('should have its `id` and `version` numbers incremented', function() {
-          expect(first.id).to.be(4);
-          expect(first.version).to.be(4);
+          expect(first.id).to.be(5);
+          expect(first.version).to.be(5);
         });
 
         it('should set `parentVersion` to the reverted version', function() {
