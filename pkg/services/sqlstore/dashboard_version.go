@@ -11,7 +11,6 @@ import (
 	"github.com/grafana/grafana/pkg/components/simplejson"
 	m "github.com/grafana/grafana/pkg/models"
 	"github.com/grafana/grafana/pkg/services/sqlstore/df"
-	diffformatter "github.com/grafana/grafana/pkg/services/sqlstore/formatter"
 	jsondiff "github.com/yudai/gojsondiff"
 	"github.com/yudai/gojsondiff/formatter"
 )
@@ -65,7 +64,7 @@ func CompareDashboardVersionsHTMLCommand(cmd *m.CompareDashboardVersionsHTMLComm
 		return err
 	}
 
-	delta, err := diffHTML(original, newDashboard)
+	delta, err := diffJSON(original, newDashboard)
 	if err != nil {
 		return err
 	}
@@ -259,13 +258,14 @@ func diff(original, newDashboard *m.DashboardVersion) (map[string]interface{}, e
 		return nil, err
 	}
 
+	// TODO(ben) move this to the df package
 	format := formatter.NewDeltaFormatter()
 	return format.FormatAsJson(diff)
 }
 
-// diffHTML computes the diff as human-readable string output, for use in HTML
+// diffJSON computes the diff as human-readable string output, for use in HTML
 // templating systems.
-func diffHTML(original, newDashboard *m.DashboardVersion) (string, error) {
+func diffJSON(original, newDashboard *m.DashboardVersion) (string, error) {
 	diff, err := delta(original, newDashboard)
 	if err != nil {
 		return "", err
@@ -281,16 +281,12 @@ func diffHTML(original, newDashboard *m.DashboardVersion) (string, error) {
 		return "", err
 	}
 
-	format := diffformatter.NewAsciiFormatter(result, diffformatter.AsciiFormatterConfig{
-		ShowArrayIndex: false,
-		Coloring:       true,
-	})
-	pretty, err := format.Format(diff)
+	jsonFormatter := df.NewAsciiFormatter(result, df.AsciiFormatterConfig{})
+	_, err = jsonFormatter.Format(diff)
 	if err != nil {
 		return "", err
 	}
-
-	return `<pre><code>` + pretty + `</pre></code>`, nil
+	return jsonFormatter.Render()
 }
 
 // diffBasic computes the diff as human-readable string output, for use in HTML
@@ -334,7 +330,7 @@ type version struct {
 func getMaxVersion(sess *xorm.Session, dashboardId int64) (int, error) {
 	v := version{}
 	has, err := sess.Table("dashboard_version").
-		Select("MAX(version) AS max").
+		Select("MAX(version) AS max"). // thank you sqlite3 :()
 		Where("dashboard_id = ?", dashboardId).
 		Get(&v)
 	if !has {
@@ -347,5 +343,3 @@ func getMaxVersion(sess *xorm.Session, dashboardId int64) (int, error) {
 	v.Max++
 	return v.Max, nil
 }
-
-// TODO(ben): move all the diff stuff to it's own package
