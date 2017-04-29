@@ -58,6 +58,8 @@ var (
 	tplJSONDiffLine = `{{ define "JSONDiffLine" -}}
 <tr>
   <td>{{ .LineNum }}</td>
+  <td><strong>{{if .LeftLine }}{{ .LeftLine }}{{ end }}</strong></td>
+  <td><strong>{{if .RightLine }}{{ .RightLine }}{{ end }}</strong></td>
   <td>{{ .Indent }}</td>
   <td class="{{ cton .Change }}">{{ indent .Indent }}{{ .Text }}</td>
   <td>{{ ctos .Change }}</td>
@@ -84,10 +86,12 @@ var diffTplFuncs = template.FuncMap{
 }
 
 type JSONLine struct {
-	LineNum int
-	Indent  int
-	Text    string
-	Change  ChangeType
+	LineNum   int
+	LeftLine  int
+	RightLine int
+	Indent    int
+	Text      string
+	Change    ChangeType
 }
 
 // A formatter only needs to satisfy the `Format` method, which has the definition,
@@ -117,6 +121,8 @@ type AsciiFormatter struct {
 	size      []int
 	inArray   []bool
 	lineCount int
+	leftLine  int
+	rightLine int
 	line      *AsciiLine
 	Lines     []*JSONLine
 	tpl       *template.Template
@@ -126,7 +132,7 @@ func (f *AsciiFormatter) Render() (string, error) {
 	b := &bytes.Buffer{}
 	err := f.tpl.ExecuteTemplate(b, "JSONDiffWrapper", f.Lines)
 	if err != nil {
-		fmt.Println("\n\n", err.(*template.Error).Description, "\n\n")
+		fmt.Printf("%v\n", err)
 		return "", err
 	}
 	return b.String(), nil
@@ -357,13 +363,33 @@ func (f *AsciiFormatter) newLine(change ChangeType) {
 }
 
 func (f *AsciiFormatter) closeLine() {
-	// TODO(ben) count left vs right
+	leftLine := 0
+	rightLine := 0
 	f.lineCount++
+
+	switch f.line.change {
+	case ChangeAdded, ChangeNew:
+		f.rightLine++
+		rightLine = f.rightLine
+
+	case ChangeDeleted, ChangeOld:
+		f.leftLine++
+		leftLine = f.leftLine
+
+	case ChangeNil:
+		f.rightLine++
+		f.leftLine++
+		rightLine = f.rightLine
+		leftLine = f.leftLine
+	}
+
 	f.Lines = append(f.Lines, &JSONLine{
-		LineNum: f.lineCount,
-		Indent:  f.line.indent,
-		Text:    strings.Repeat("  ", f.line.indent) + f.line.buffer.String(),
-		Change:  f.line.change,
+		LineNum:   f.lineCount,
+		RightLine: rightLine,
+		LeftLine:  leftLine,
+		Indent:    f.line.indent,
+		Text:      strings.Repeat("  ", f.line.indent) + f.line.buffer.String(),
+		Change:    f.line.change,
 	})
 }
 
