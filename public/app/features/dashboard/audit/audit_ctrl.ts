@@ -73,13 +73,19 @@ export class AuditLogCtrl {
     return (this.selected.length === this.max && !checked) || this.revisions.length === 1;
   }
 
-  formatDate(date, omitTime = false) {
+  formatDate(date) {
     date = moment.isMoment(date) ? date : moment(date);
-    const format = omitTime ? 'YYYY-MM-DD' : 'YYYY-MM-DD HH:mm:ss';
+    const format = 'YYYY-MM-DD HH:mm:ss';
 
     return this.dashboard.timezone === 'browser' ?
       moment(date).format(format) :
       moment.utc(date).format(format);
+  }
+
+  formatBasicDate(date) {
+    const now = this.dashboard.timezone === 'browser' ?  moment() : moment.utc();
+    const then = this.dashboard.timezone === 'browser' ?  moment(date) : moment.utc(date);
+    return then.from(now);
   }
 
   getDiff(diff: string) {
