@@ -147,7 +147,10 @@
 									<span>{{ctrl.getMeta(original, 'message')}}</span>
 								</p>
 							</section>
-							<div id="delta" compile="ctrl.delta[ctrl.diff]" />
+							<div id="delta" diff-delta>
+								<div class="delta-basic" ng-show="ctrl.diff === 'basic'" compile="ctrl.delta.basic" />
+								<div class="delta-html" ng-show="ctrl.diff === 'html'" compile="ctrl.delta.html" />
+							</div>
 						</div>
 					</div>
 				</div>
