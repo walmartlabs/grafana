@@ -146,8 +146,10 @@
   & .diff-line-number { color: $diff-json-changed-num; }
 }
 
-.diff-json-new { background-color: $diff-json-added; }
-.diff-json-old { background-color: $diff-json-deleted; }
+.diff-json-new { background-color: $diff-json-new; }
+.diff-json-old { background-color: $diff-json-old; }
+.diff-json-added { background-color: $diff-json-added; }
+.diff-json-deleted { background-color: $diff-json-deleted; }
 
 .diff-value {
   user-select: all;

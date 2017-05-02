@@ -92,7 +92,7 @@ func (w *Walker) Walk(df diff.Diff) error {
 func (w *Walker) handleObject(v map[string]interface{}, df []diff.Delta) {
 	// formatting
 	w.setLineState(ObjectOpen)
-	// w.newline()
+	w.newline()
 	w.indent()
 
 	sortedKeys := sortKeys(v)
@@ -109,14 +109,14 @@ func (w *Walker) handleObject(v map[string]interface{}, df []diff.Delta) {
 	}
 
 	w.setLineState(ObjectClose)
-	// w.closeline()
+	w.closeline()
 	w.unindent()
 }
 
 func (w *Walker) handleArray(v []interface{}, df []diff.Delta) {
 	// formatting
 	w.setLineState(ArrayOpen)
-	// w.newline()
+	w.newline()
 	w.indent()
 
 	for i, value := range v {
@@ -135,7 +135,7 @@ func (w *Walker) handleArray(v []interface{}, df []diff.Delta) {
 	}
 
 	w.setLineState(ArrayClose)
-	// w.closeline()
+	w.closeline()
 	w.unindent()
 }
 
@@ -159,6 +159,7 @@ func (w *Walker) handleItem(v interface{}, df []diff.Delta, pos diff.Position) {
 					ident:         w.ident,
 					line:          w.lines,
 				}, nil)
+				w.newline()
 
 				// Handle the object
 				w.handleObject(object, d.Deltas)
@@ -177,6 +178,7 @@ func (w *Walker) handleItem(v interface{}, df []diff.Delta, pos diff.Position) {
 					ident:         w.ident,
 					line:          w.lines,
 				}, nil)
+				w.newline()
 
 				// Handle the array
 				w.handleArray(array, d.Deltas)
@@ -224,7 +226,7 @@ func (w *Walker) handle(name string, value interface{}, state EncState) {
 
 		// formatting
 		w.setLineState(ObjectOpen)
-		// w.newline()
+		w.newline()
 		w.indent()
 
 		// Handle the values
@@ -235,7 +237,7 @@ func (w *Walker) handle(name string, value interface{}, state EncState) {
 
 		// formatting
 		w.setLineState(ObjectClose)
-		// w.closeline()
+		w.closeline()
 		w.unindent()
 
 	case []interface{}:
@@ -250,7 +252,7 @@ func (w *Walker) handle(name string, value interface{}, state EncState) {
 
 		// formatting
 		w.setLineState(ArrayOpen)
-		// w.newline()
+		w.newline()
 		w.indent()
 
 		// Handle the values
@@ -260,7 +262,7 @@ func (w *Walker) handle(name string, value interface{}, state EncState) {
 
 		// formatting
 		w.setLineState(ArrayClose)
-		// w.closeline()
+		w.closeline()
 		w.unindent()
 
 	case interface{}:

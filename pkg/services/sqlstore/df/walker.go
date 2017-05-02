@@ -186,10 +186,8 @@ func (w *BasicWalker) Walk(value interface{}, info *DeltaInfo, err error) error 
 			if err != nil {
 				fmt.Printf("error %v\n", err)
 			}
-
 		}
 	}
-
 	w.insertHTML(info)
 
 	// TODO(ben) need to visit the other keys

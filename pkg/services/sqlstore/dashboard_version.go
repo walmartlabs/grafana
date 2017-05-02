@@ -22,9 +22,6 @@ func init() {
 	bus.AddHandler("sql", GetDashboardVersion)
 	bus.AddHandler("sql", GetDashboardVersions)
 	bus.AddHandler("sql", RestoreDashboardVersion)
-
-	// bus.AddHandler("sql", RestoreDeletedDashboard)
-	// bus.AddHandler("sql", Blame)
 }
 
 // CompareDashboardVersionsCommand computes the JSON diff of two versions,
@@ -186,14 +183,6 @@ func RestoreDashboardVersion(cmd *m.RestoreDashboardVersionCommand) error {
 		return nil
 	})
 }
-
-// func RestoreDeletedDashboard(cmd *m.) error {
-
-// }
-
-// func Blame(cmd *m.) error {
-
-// }
 
 // getDashboardVersion is a helper function that gets the dashboard version for
 // the given dashboard ID and version ID.
