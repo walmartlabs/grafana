@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"html/template"
 	"sort"
-	"strings"
 
 	diff "github.com/yudai/gojsondiff"
 )
@@ -53,11 +52,11 @@ var (
 	// tplJSONDiffLine is the template that prints each line in a diff
 	tplJSONDiffLine = `{{ define "JSONDiffLine" -}}
 <p id="l{{ .LineNum }}" class="diff-line diff-json-{{ cton .Change }}">
-	<span class="diff-line-number" ng-class="{'diff-line-number-hide': {{ cton .Change }} === 'new'}">
-		{{ .LineNum }}
+	<span class="diff-line-number">
+		{{if .LeftLine }}{{ .LeftLine }}{{ end }}
 	</span>
-	<span class="diff-line-number" ng-class="{'diff-line-number-hide': {{ cton .Change }} === 'old'}">
-		{{ .LineNum }}
+	<span class="diff-line-number">
+		{{if .RightLine }}{{ .RightLine }}{{ end }}
 	</span>
 	<span class="diff-value diff-indent-{{ .Indent }}" title="{{ .Text }}">
 		{{ .Text }}
@@ -385,7 +384,7 @@ func (f *AsciiFormatter) closeLine() {
 		RightLine: rightLine,
 		LeftLine:  leftLine,
 		Indent:    f.line.indent,
-		Text:      strings.Repeat("  ", f.line.indent) + f.line.buffer.String(),
+		Text:      f.line.buffer.String(),
 		Change:    f.line.change,
 	})
 }
