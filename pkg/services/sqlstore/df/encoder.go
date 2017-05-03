@@ -68,7 +68,7 @@ func NewWalker(left interface{}, walkFn WalkFunc) *Walker {
 		walkFn:    walkFn,
 		lineState: ObjectOpen, // default, maybe remove
 		ident:     0,
-		lines:     0,
+		lines:     1,
 	}
 }
 
@@ -265,7 +265,7 @@ func (w *Walker) handle(name string, value interface{}, state EncState) {
 		w.closeline()
 		w.unindent()
 
-	case interface{}:
+	default:
 		// Handle the key
 		//
 		// TODO(ben) can't decide if newline...
