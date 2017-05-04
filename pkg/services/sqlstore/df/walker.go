@@ -8,6 +8,11 @@ import (
 	"html/template"
 )
 
+// BEN: Want to go leftLine for old/deleted
+//                 rightLine for new/added
+//
+// need to subtract one from line nums for some reason
+// {{ indent .Indent }}  <diff-link-json line-number="{{ .Line }}" switch-view="ctrl.getDiff('html')" />
 var (
 	// tplChange is used to render 1-line deep changes
 	tplChange = `{{ indent .Indent }}<div class="diff-section diff-group">
@@ -15,7 +20,7 @@ var (
 {{ indent .Indent }}    <i class="diff-circle diff-circle-{{ getChange .Change }} fa fa-circle-o"></i>
 {{ indent .Indent }}    <strong>{{ title .Value }}</strong> {{ getChange .Change }}
 {{ indent .Indent }}  </h2>
-{{ indent .Indent }}  <diff-link-json line-number="{{ .Line }}" switch-view="ctrl.getDiff('html')" />
+{{ indent .Indent }}  <diff-link-json line-link="{{ .Line }}" line-display="{{ .DisplayLine }}" switch-view="ctrl.getDiff('html')" />
 {{ indent .Indent }}</div>
 
 `
@@ -37,15 +42,17 @@ var (
 `
 
 	// encStateMap is used in the template helper
-	encStateMap = map[EncState]string{
-		StateAdded:   "added",
-		StateDeleted: "deleted",
+	encStateMap = map[ChangeType]string{
+		ChangeAdded:   "added",
+		ChangeDeleted: "deleted",
+		ChangeOld:     "deleted", // might want just "changed"
+		ChangeNew:     "added",
 	}
 
 	// tplFuncMap is the function map for each template
 	tplFuncMap = template.FuncMap{
-		"getChange": func(e EncState) string {
-			state, ok := encStateMap[e]
+		"getChange": func(c ChangeType) string {
+			state, ok := encStateMap[c]
 			if !ok {
 				return "changed"
 			}
@@ -57,6 +64,55 @@ var (
 		"title": strings.Title,
 	}
 )
+
+type WalkFunc func(value interface{}, info *DeltaInfo, err error) error
+
+type LineState int
+
+const (
+	ArrayOpen LineState = iota
+	ArrayClose
+	ObjectOpen
+	ObjectClose
+)
+
+type DeltaInfo struct {
+	encodingState ChangeType
+	lineState     LineState
+	isKey         bool
+	ident         int
+	line          int
+	leftLines     int
+	rightLines    int
+}
+
+func (d *DeltaInfo) GetChange() ChangeType {
+	return d.encodingState
+}
+
+func (d *DeltaInfo) GetLineState() LineState {
+	return d.lineState
+}
+
+func (d *DeltaInfo) IsKey() bool {
+	return d.isKey
+}
+
+func (d *DeltaInfo) GetIndent() int {
+	return d.ident
+}
+
+func (d *DeltaInfo) GetLine() int {
+	return d.line + 1
+}
+
+func (d *DeltaInfo) GetLeftLine() int {
+	return d.leftLines + 1
+}
+
+func (d *DeltaInfo) GetRightLine() int {
+	return d.rightLines + 1
+}
 
 // BasicWalker walks and prints a bsic diff.
 type BasicWalker struct {
@@ -107,7 +163,7 @@ func (w *BasicWalker) Walk(value interface{}, info *DeltaInfo, err error) error 
 			// 		<div class="change list-change diff-label">Postgresql Prod Medusa</div>
 			// 		<a class="change list-linenum diff-linenum btn btn-inverse btn-small">Line 31</a>
 			fmt.Fprintf(w.buf, `%s<div class="change list-change diff-label">%v</div>%s`, strings.Repeat(" ", info.GetIndent()*2), value, "\n")
-			fmt.Fprintf(w.buf, `%s<diff-link-json line-number="%d" switch-view="ctrl.getDiff('html')" /></div>%s`, strings.Repeat(" ", info.GetIndent()*2), info.GetLine(), "\n\n")
+			fmt.Fprintf(w.buf, `%s<diff-link-json line-link="%d" line-display="%d" switch-view="ctrl.getDiff('html')" /></div>%s`, strings.Repeat(" ", info.GetIndent()*2), info.GetLine(), info.GetRightLine(), "\n\n")
 		} else {
 			// hidden for now
 			// fmt.Printf("%3d|%s* %#v\n", info.GetLine(), strings.Repeat(" ", info.GetIndent()*2), value)
@@ -116,16 +172,16 @@ func (w *BasicWalker) Walk(value interface{}, info *DeltaInfo, err error) error 
 	}
 
 	w.insertHTML(info)
-
 	if isBasicDiffDelta(2, info) {
-		switch info.GetEncodingState() {
+		switch info.GetChange() {
 
-		case StateAdded, StateDeleted:
+		case ChangeDeleted:
 			err := w.tpl.ExecuteTemplate(w.buf, "change", map[string]interface{}{
-				"Change": info.GetEncodingState(),
-				"Value":  value,
-				"Indent": info.GetIndent(),
-				"Line":   info.GetLine(),
+				"Change":      info.GetChange(),
+				"Value":       value,
+				"Indent":      info.GetIndent(),
+				"Line":        info.GetLine(),
+				"DisplayLine": info.GetLeftLine(),
 			})
 			if err != nil {
 				fmt.Printf("error: %#v\n", err)
@@ -133,7 +189,21 @@ func (w *BasicWalker) Walk(value interface{}, info *DeltaInfo, err error) error 
 
 			w.shouldPrint = true
 
-		case StateChangedOld:
+		case ChangeAdded:
+			err := w.tpl.ExecuteTemplate(w.buf, "change", map[string]interface{}{
+				"Change":      info.GetChange(),
+				"Value":       value,
+				"Indent":      info.GetIndent(),
+				"Line":        info.GetLine(),
+				"DisplayLine": info.GetRightLine(),
+			})
+			if err != nil {
+				fmt.Printf("error: %#v\n", err)
+			}
+
+			w.shouldPrint = true
+
+		case ChangeOld:
 			// <ul class="change list diff-list">
 			// 	<li class="change list-item diff-item diff-item-changed">
 			// 		<div class="change list-title">Dashboard Name</div>
@@ -170,18 +240,19 @@ func (w *BasicWalker) Walk(value interface{}, info *DeltaInfo, err error) error 
 			w.shouldPrint = true
 			w.isOld = true
 
-		case StateChangedNew:
+		case ChangeNew:
 			// don't print the key twice
 			w.shouldPrint = true
 			w.isNew = true
 
-		case StateNil:
+		case ChangeNil:
 			// need to traverse (TODO)
 			err := w.tpl.ExecuteTemplate(w.buf, "change", map[string]interface{}{
-				"Change": info.GetEncodingState(),
-				"Value":  value,
-				"Indent": info.GetIndent(),
-				"Line":   info.GetLine(),
+				"Change":      info.GetChange(),
+				"Value":       value,
+				"Indent":      info.GetIndent(),
+				"Line":        info.GetLine(),
+				"DisplayLine": info.GetLeftLine(),
 			})
 			if err != nil {
 				fmt.Printf("error %v\n", err)
@@ -232,7 +303,7 @@ func (w *BasicWalker) insertHTML(info *DeltaInfo) {
 func isBasicDiffDelta(indent int, info *DeltaInfo) bool {
 	if info.GetIndent() == indent &&
 		info.IsKey() == true &&
-		info.GetEncodingState() != StateUnchanged {
+		info.GetChange() != ChangeUnchanged {
 		return true
 	}
 	return false

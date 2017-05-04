@@ -18,6 +18,7 @@ const (
 	ChangeDeleted
 	ChangeOld
 	ChangeNew
+	ChangeUnchanged
 )
 
 var (
@@ -88,31 +89,28 @@ type JSONLine struct {
 	Indent    int
 	Text      string
 	Change    ChangeType
+	Key       string
+	Val       interface{}
 }
 
-// A formatter only needs to satisfy the `Format` method, which has the definition,
-//
-//		Format(diff diff.Diff) (result string, err error)
-//
-// So that's all we need to do. Ideally, we'd have a custom marshaler.
-// Really though, it's easier just to export a few functions which do everything.
-
-func NewAsciiFormatter(left interface{}, config AsciiFormatterConfig) *AsciiFormatter {
+func NewAsciiFormatter(left interface{}, walkFn WalkFunc) *AsciiFormatter {
 	tpl := template.Must(template.New("JSONDiffWrapper").Funcs(diffTplFuncs).Parse(tplJSONDiffWrapper))
 	tpl = template.Must(tpl.New("JSONDiffLine").Funcs(diffTplFuncs).Parse(tplJSONDiffLine))
 
 	return &AsciiFormatter{
-		left:   left,
-		config: config,
-		Lines:  []*JSONLine{},
-		tpl:    tpl,
+		left:      left,
+		Lines:     []*JSONLine{},
+		tpl:       tpl,
+		path:      []string{},
+		size:      []int{},
+		lineCount: 0,
+		inArray:   []bool{},
+		walkFn:    walkFn,
 	}
 }
 
 type AsciiFormatter struct {
 	left      interface{}
-	config    AsciiFormatterConfig
-	buffer    *bytes.Buffer
 	path      []string
 	size      []int
 	inArray   []bool
@@ -120,40 +118,28 @@ type AsciiFormatter struct {
 	leftLine  int
 	rightLine int
 	line      *AsciiLine
+	lineState LineState
 	Lines     []*JSONLine
 	tpl       *template.Template
+	walkFn    WalkFunc
 }
-
-func (f *AsciiFormatter) Render() (string, error) {
-	b := &bytes.Buffer{}
-	err := f.tpl.ExecuteTemplate(b, "JSONDiffWrapper", f.Lines)
-	if err != nil {
-		fmt.Printf("%v\n", err)
-		return "", err
-	}
-	return b.String(), nil
-}
-
-type AsciiFormatterConfig struct {
-	ShowArrayIndex bool
-	Coloring       bool
-}
-
-var AsciiFormatterDefaultConfig = AsciiFormatterConfig{}
 
 type AsciiLine struct {
+	// the type of change
 	change ChangeType
+
+	// the actual changes - no formatting
+	key string
+	val interface{}
+
+	// level of indentation for the current line
 	indent int
+
+	// buffer containing the fully formatted line
 	buffer *bytes.Buffer
 }
 
 func (f *AsciiFormatter) Format(diff diff.Diff) (result string, err error) {
-	f.buffer = bytes.NewBuffer([]byte{})
-	f.path = []string{}
-	f.size = []int{}
-	f.lineCount = 0
-	f.inArray = []bool{}
-
 	if v, ok := f.left.(map[string]interface{}); ok {
 		f.formatObject(v, diff)
 	} else if v, ok := f.left.([]interface{}); ok {
@@ -163,23 +149,33 @@ func (f *AsciiFormatter) Format(diff diff.Diff) (result string, err error) {
 			f.left)
 	}
 
-	return f.buffer.String(), nil
+	b := &bytes.Buffer{}
+	err = f.tpl.ExecuteTemplate(b, "JSONDiffWrapper", f.Lines)
+	if err != nil {
+		fmt.Printf("%v\n", err)
+		return "", err
+	}
+	return b.String(), nil
 }
 
 func (f *AsciiFormatter) formatObject(left map[string]interface{}, df diff.Diff) {
 	f.addLineWith(ChangeNil, "{")
+	f.lineState = ObjectOpen
 	f.push("ROOT", len(left), false)
 	f.processObject(left, df.Deltas())
 	f.pop()
 	f.addLineWith(ChangeNil, "}")
+	f.lineState = ObjectClose
 }
 
 func (f *AsciiFormatter) formatArray(left []interface{}, df diff.Diff) {
 	f.addLineWith(ChangeNil, "[")
+	f.lineState = ArrayOpen
 	f.push("ROOT", len(left), true)
 	f.processArray(left, df.Deltas())
 	f.pop()
 	f.addLineWith(ChangeNil, "]")
+	f.lineState = ArrayClose
 }
 
 func (f *AsciiFormatter) processArray(array []interface{}, deltas []diff.Delta) error {
@@ -243,13 +239,26 @@ func (f *AsciiFormatter) processItem(value interface{}, deltas []diff.Delta, pos
 
 				f.newLine(ChangeNil)
 				f.printKey(positionStr)
+
+				f.walkFn(positionStr, &DeltaInfo{
+					encodingState: ChangeNil,
+					lineState:     f.lineState,
+					isKey:         true,
+					ident:         f.line.indent,
+					line:          f.lineCount,
+					leftLines:     f.leftLine,
+					rightLines:    f.rightLine,
+				}, nil)
+
 				f.print("{")
+				f.lineState = ObjectOpen
 				f.closeLine()
 				f.push(positionStr, len(o), false)
 				f.processObject(o, d.Deltas)
 				f.pop()
 				f.newLine(ChangeNil)
 				f.print("}")
+				f.lineState = ObjectClose
 				f.printComma()
 				f.closeLine()
 
@@ -265,13 +274,26 @@ func (f *AsciiFormatter) processItem(value interface{}, deltas []diff.Delta, pos
 
 				f.newLine(ChangeNil)
 				f.printKey(positionStr)
+
+				f.walkFn(positionStr, &DeltaInfo{
+					encodingState: ChangeNil,
+					lineState:     f.lineState,
+					isKey:         true,
+					ident:         f.line.indent,
+					line:          f.lineCount,
+					leftLines:     f.leftLine,
+					rightLines:    f.rightLine,
+				}, nil)
+
 				f.print("[")
+				f.lineState = ArrayOpen
 				f.closeLine()
 				f.push(positionStr, len(a), true)
 				f.processArray(a, d.Deltas)
 				f.pop()
 				f.newLine(ChangeNil)
 				f.print("]")
+				f.lineState = ArrayClose
 				f.printComma()
 				f.closeLine()
 
@@ -304,7 +326,7 @@ func (f *AsciiFormatter) processItem(value interface{}, deltas []diff.Delta, pos
 
 		}
 	} else {
-		f.printRecursive(positionStr, value, ChangeNil)
+		f.printRecursive(positionStr, value, ChangeUnchanged)
 	}
 
 	return nil
@@ -372,29 +394,34 @@ func (f *AsciiFormatter) closeLine() {
 		f.leftLine++
 		leftLine = f.leftLine
 
-	case ChangeNil:
+	case ChangeNil, ChangeUnchanged:
 		f.rightLine++
 		f.leftLine++
 		rightLine = f.rightLine
 		leftLine = f.leftLine
 	}
 
+	s := f.line.buffer.String()
 	f.Lines = append(f.Lines, &JSONLine{
 		LineNum:   f.lineCount,
 		RightLine: rightLine,
 		LeftLine:  leftLine,
 		Indent:    f.line.indent,
-		Text:      f.line.buffer.String(),
+		Text:      s,
 		Change:    f.line.change,
+		Key:       f.line.key,
+		Val:       f.line.val,
 	})
 }
 
 func (f *AsciiFormatter) printKey(name string) {
 	if !f.inArray[len(f.inArray)-1] {
+		f.line.key = name
 		fmt.Fprintf(f.line.buffer, `"%s": `, name)
-	} else if f.config.ShowArrayIndex {
-		fmt.Fprintf(f.line.buffer, `%s: `, name)
 	}
+	// else if f.config.ShowArrayIndex {
+	// 	fmt.Fprintf(f.line.buffer, `%s: `, name)
+	// }
 }
 
 func (f *AsciiFormatter) printComma() {
@@ -407,10 +434,13 @@ func (f *AsciiFormatter) printComma() {
 func (f *AsciiFormatter) printValue(value interface{}) {
 	switch value.(type) {
 	case string:
+		f.line.val = value
 		fmt.Fprintf(f.line.buffer, `"%s"`, value)
 	case nil:
+		f.line.val = "null"
 		f.line.buffer.WriteString("null")
 	default:
+		f.line.val = value
 		fmt.Fprintf(f.line.buffer, `%#v`, value)
 	}
 }
@@ -424,7 +454,20 @@ func (f *AsciiFormatter) printRecursive(name string, value interface{}, change C
 	case map[string]interface{}:
 		f.newLine(change)
 		f.printKey(name)
+
+		f.walkFn(name, &DeltaInfo{
+			encodingState: change,
+			lineState:     f.lineState,
+			isKey:         true,
+			ident:         f.line.indent,
+			line:          f.lineCount,
+			leftLines:     f.leftLine,
+			rightLines:    f.rightLine,
+		}, nil)
+
 		f.print("{")
+		f.lineState = ObjectOpen
+
 		f.closeLine()
 
 		m := value.(map[string]interface{})
@@ -439,13 +482,25 @@ func (f *AsciiFormatter) printRecursive(name string, value interface{}, change C
 
 		f.newLine(change)
 		f.print("}")
+		f.lineState = ObjectClose
+
 		f.printComma()
 		f.closeLine()
 
 	case []interface{}:
 		f.newLine(change)
 		f.printKey(name)
+		f.walkFn(name, &DeltaInfo{
+			encodingState: change,
+			lineState:     f.lineState,
+			isKey:         true,
+			ident:         f.line.indent,
+			line:          f.lineCount,
+			leftLines:     f.leftLine,
+			rightLines:    f.rightLine,
+		}, nil)
 		f.print("[")
+		f.lineState = ArrayOpen
 		f.closeLine()
 
 		s := value.([]interface{})
@@ -458,13 +513,37 @@ func (f *AsciiFormatter) printRecursive(name string, value interface{}, change C
 
 		f.newLine(change)
 		f.print("]")
+		f.lineState = ArrayClose
 		f.printComma()
 		f.closeLine()
 
 	default:
 		f.newLine(change)
 		f.printKey(name)
+
+		f.walkFn(name, &DeltaInfo{
+			encodingState: change,
+			lineState:     f.lineState,
+			isKey:         true,
+			ident:         f.line.indent,
+			line:          f.lineCount,
+			leftLines:     f.leftLine,
+			rightLines:    f.rightLine,
+		}, nil)
+
 		f.printValue(value)
+
+		// nice
+		f.walkFn(value, &DeltaInfo{
+			encodingState: change,
+			lineState:     f.lineState,
+			isKey:         false,
+			ident:         f.line.indent,
+			line:          f.lineCount,
+			leftLines:     f.leftLine,
+			rightLines:    f.rightLine,
+		}, nil)
+
 		f.printComma()
 		f.closeLine()
 	}
