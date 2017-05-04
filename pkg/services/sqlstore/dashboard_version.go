@@ -270,12 +270,10 @@ func diffJSON(original, newDashboard *m.DashboardVersion) (string, error) {
 		return "", err
 	}
 
-	jsonFormatter := df.NewAsciiFormatter(result, df.AsciiFormatterConfig{})
-	_, err = jsonFormatter.Format(diff)
-	if err != nil {
-		return "", err
-	}
-	return jsonFormatter.Render()
+	lineWalker := df.NewBasicWalker()
+	jsonFormatter := df.NewAsciiFormatter(result, lineWalker.Walk)
+
+	return jsonFormatter.Format(diff)
 }
 
 // diffBasic computes the diff as human-readable string output, for use in HTML
@@ -300,13 +298,17 @@ func diffBasic(original, newDashboard *m.DashboardVersion) (string, error) {
 	//
 	// walkFn
 	lineWalker := df.NewBasicWalker()
-	enc := df.NewWalker(result, lineWalker.Walk)
+	jsonFormatter := df.NewAsciiFormatter(result, lineWalker.Walk)
+	_, err = jsonFormatter.Format(diff)
+	if err != nil {
+		return "", err
+	}
 
 	buf := &bytes.Buffer{}
 	fmt.Fprintln(buf, `<div class="basic-diff">`)
-	enc.Walk(diff)
 	fmt.Fprint(buf, lineWalker.String())
 	fmt.Fprintln(buf, `</div>`)
+
 	return buf.String(), nil
 }
 
