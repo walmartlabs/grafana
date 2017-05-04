@@ -66,7 +66,8 @@ export function linkJson() {
     replace: true,
     restrict: 'E',
     scope: {
-      line: '@lineNumber',
+      line: '@lineDisplay',
+      link: '@lineLink',
       switchView: '&',
     },
     templateUrl: 'public/app/features/dashboard/audit/partials/link-json.html',
