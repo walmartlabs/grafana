@@ -10,6 +10,7 @@ import (
 	"github.com/grafana/grafana/pkg/bus"
 	"github.com/grafana/grafana/pkg/components/simplejson"
 	m "github.com/grafana/grafana/pkg/models"
+	"github.com/grafana/grafana/pkg/services/sqlstore/basic"
 	"github.com/grafana/grafana/pkg/services/sqlstore/df"
 	jsondiff "github.com/yudai/gojsondiff"
 	"github.com/yudai/gojsondiff/formatter"
@@ -304,9 +305,14 @@ func diffBasic(original, newDashboard *m.DashboardVersion) (string, error) {
 		return "", err
 	}
 
+	str, err := basic.Format(jsonFormatter.Lines)
+	if err != nil {
+		return "", err
+	}
+
 	buf := &bytes.Buffer{}
 	fmt.Fprintln(buf, `<div class="basic-diff">`)
-	fmt.Fprint(buf, lineWalker.String())
+	fmt.Fprintln(buf, str)
 	fmt.Fprintln(buf, `</div>`)
 
 	return buf.String(), nil

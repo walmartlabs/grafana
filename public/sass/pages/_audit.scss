@@ -172,15 +172,17 @@
   font-size: $font-size-root;
   font-style: normal;
   padding: 10px 15px;
-  margin: 0;
+  margin: 1rem 0;
 
   & .diff-group { padding: 0 5px; }
 }
 
 .diff-group-name {
   display: inline-block;
+  width: 100%;
   font-size: $font-size-root;
   margin-left: 1em;
+  padding-right: 1em;
   color: $text-muted;
 }
 
