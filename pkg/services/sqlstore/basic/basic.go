@@ -10,6 +10,7 @@ import (
 // A BasicDiff holds the stateful values that are used when generating a basic
 // diff from JSON tokens.
 type BasicDiff struct {
+	narrow     string
 	writing    bool
 	LastIndent int
 	Block      *BasicBlock
@@ -78,10 +79,6 @@ func (b *BasicDiff) Basic(lines []*df.JSONLine) []*BasicBlock {
 	for _, line := range lines {
 		if b.LastIndent == 3 && line.Indent == 2 && line.Change == df.ChangeNil {
 			if b.Block != nil {
-				if b.Summary != nil {
-					b.Block.Summaries = append(b.Block.Summaries, b.Summary)
-				}
-
 				blocks = append(blocks, b.Block)
 			}
 		}
@@ -160,14 +157,28 @@ func (b *BasicDiff) Basic(lines []*df.JSONLine) []*BasicBlock {
 
 			} else {
 				// TODO(ben)
-				// --- This is special casing for arrays ---
-				// we need cae for maps
+				// Need to store key each time instead of using block title
+				// if key isn't nil, otherwise use block title
 				if line.Change != df.ChangeUnchanged {
-					if line.Key == "" {
+					// Narrow the key
+					if line.Change == df.ChangeNil {
+						if line.Key != "" {
+							b.narrow = line.Key
+						}
+					}
+					// this is pretty close, might want to try to "peek"
+					// in another special case
+					if line.Key == "" && line.Change != df.ChangeNil {
 						if !b.writing {
 							b.writing = true
+							key := b.Block.Title
+
+							if b.narrow != "" {
+								key = b.narrow
+							}
+
 							b.Summary = &BasicSummary{
-								Key:       b.Block.Title,
+								Key:       key,
 								Change:    line.Change,
 								LineStart: line.LineNum,
 							}
@@ -175,10 +186,13 @@ func (b *BasicDiff) Basic(lines []*df.JSONLine) []*BasicBlock {
 					}
 					// as soon as the diff type is unchanged, we writeout
 				} else {
+					//
+					// this works but gets false positives for keys that're not nil
+					//
 					if b.writing {
 						b.writing = false
 						b.Summary.LineEnd = line.LineNum
-						b.Summary.Count++
+						b.Block.Summaries = append(b.Block.Summaries, b.Summary)
 					}
 				}
 			}
