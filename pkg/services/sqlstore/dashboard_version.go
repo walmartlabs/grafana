@@ -20,6 +20,7 @@ func init() {
 	bus.AddHandler("sql", CompareDashboardVersionsCommand)
 	bus.AddHandler("sql", CompareDashboardVersionsHTMLCommand)
 	bus.AddHandler("sql", CompareDashboardVersionsBasicCommand)
+	bus.AddHandler("sql", CompareDashboardVersionsTokenCommand)
 	bus.AddHandler("sql", GetDashboardVersion)
 	bus.AddHandler("sql", GetDashboardVersions)
 	bus.AddHandler("sql", RestoreDashboardVersion)
@@ -91,6 +92,33 @@ func CompareDashboardVersionsBasicCommand(cmd *m.CompareDashboardVersionsBasicCo
 	}
 
 	cmd.Delta = delta
+	return nil
+}
+
+func CompareDashboardVersionsTokenCommand(cmd *m.CompareDashboardVersionsTokenCommand) error {
+	// Find original version
+	original, err := getDashboardVersion(cmd.DashboardId, cmd.Original)
+	if err != nil {
+		return err
+	}
+
+	newDashboard, err := getDashboardVersion(cmd.DashboardId, cmd.New)
+	if err != nil {
+		return err
+	}
+
+	delta, err := diffTokens(original, newDashboard)
+	if err != nil {
+		return err
+	}
+
+	// marshal it into JSON
+	str, err := json.MarshalIndent(delta, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	cmd.Delta = string(str)
 	return nil
 }
 
@@ -316,6 +344,33 @@ func diffBasic(original, newDashboard *m.DashboardVersion) (string, error) {
 	fmt.Fprintln(buf, `</div>`)
 
 	return buf.String(), nil
+}
+
+// diffTokens computes the diff, returning JSONLine tokens.
+func diffTokens(original, newDashboard *m.DashboardVersion) ([]*df.JSONLine, error) {
+	diff, err := delta(original, newDashboard)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]interface{})
+	originalJSON, err := simplejson.NewFromAny(original).Encode()
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(originalJSON, &result)
+	if err != nil {
+		return nil, err
+	}
+
+	lineWalker := df.NewBasicWalker()
+	jsonFormatter := df.NewAsciiFormatter(result, lineWalker.Walk)
+	_, err = jsonFormatter.Format(diff)
+	if err != nil {
+		return nil, err
+	}
+
+	return jsonFormatter.Lines, nil
 }
 
 type version struct {

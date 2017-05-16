@@ -114,3 +114,13 @@ type CompareDashboardVersionsBasicCommand struct {
 
 	Delta string `json:"delta"`
 }
+
+// CompareDashboardVersionsTokenCommand is used to compare two versions,
+// returning JSONLine tokens.
+type CompareDashboardVersionsTokenCommand struct {
+	DashboardId int64 `json:"dashboardId"`
+	Original    int   `json:"original" binding:"Required"`
+	New         int   `json:"new" binding:"Required"`
+
+	Delta string `json:"delta"`
+}
