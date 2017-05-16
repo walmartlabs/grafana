@@ -82,15 +82,18 @@ var diffTplFuncs = template.FuncMap{
 	},
 }
 
+// JSONLine contains the data required to render each line of the JSON diff
+// and contains the data required to produce the tokens output in the basic
+// diff.
 type JSONLine struct {
-	LineNum   int
-	LeftLine  int
-	RightLine int
-	Indent    int
-	Text      string
-	Change    ChangeType
-	Key       string
-	Val       interface{}
+	LineNum   int         `json:"line"`
+	LeftLine  int         `json:"leftLine"`
+	RightLine int         `json:"rightLine"`
+	Indent    int         `json:"indent"`
+	Text      string      `json:"text"`
+	Change    ChangeType  `json:"changeType"`
+	Key       string      `json:"key"`
+	Val       interface{} `json:"value"`
 }
 
 func NewAsciiFormatter(left interface{}, walkFn WalkFunc) *AsciiFormatter {
