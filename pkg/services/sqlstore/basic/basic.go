@@ -11,6 +11,7 @@ import (
 // diff from JSON tokens.
 type BasicDiff struct {
 	narrow     string
+	keysIdent  int
 	writing    bool
 	LastIndent int
 	Block      *BasicBlock
@@ -127,8 +128,6 @@ func (b *BasicDiff) Basic(lines []*df.JSONLine) []*BasicBlock {
 		if line.Indent > 2 {
 			// Ensure single line change
 			if line.Key != "" && line.Val != nil && !b.writing {
-				// TODO(ben) need to emit reflect.Type to switch on for
-				// special cases to remove ambiguity
 				switch line.Change {
 				case df.ChangeAdded, df.ChangeDeleted:
 					b.Block.Changes = append(b.Block.Changes, &BasicChange{
@@ -156,25 +155,22 @@ func (b *BasicDiff) Basic(lines []*df.JSONLine) []*BasicBlock {
 				}
 
 			} else {
-				// TODO(ben)
-				// Need to store key each time instead of using block title
-				// if key isn't nil, otherwise use block title
 				if line.Change != df.ChangeUnchanged {
-					// Narrow the key
-					if line.Change == df.ChangeNil {
-						if line.Key != "" {
-							b.narrow = line.Key
-						}
+					if line.Key != "" {
+						b.narrow = line.Key
+						b.keysIdent = line.Indent
 					}
-					// this is pretty close, might want to try to "peek"
-					// in another special case
-					if line.Key == "" && line.Change != df.ChangeNil {
+
+					if line.Change != df.ChangeNil {
 						if !b.writing {
 							b.writing = true
 							key := b.Block.Title
 
 							if b.narrow != "" {
 								key = b.narrow
+								if b.keysIdent > line.Indent {
+									key = b.Block.Title
+								}
 							}
 
 							b.Summary = &BasicSummary{
@@ -184,11 +180,7 @@ func (b *BasicDiff) Basic(lines []*df.JSONLine) []*BasicBlock {
 							}
 						}
 					}
-					// as soon as the diff type is unchanged, we writeout
 				} else {
-					//
-					// this works but gets false positives for keys that're not nil
-					//
 					if b.writing {
 						b.writing = false
 						b.Summary.LineEnd = line.LineNum
@@ -233,39 +225,44 @@ var (
 	tplBlock = `{{ define "block" -}}
 {{ range . }}
 <div class="diff-group">
-	<h2 class="diff-group">
-		<i class="diff-circle diff-circle-{{ getChange .Change }} fa fa-circle"></i>
-		<strong>{{ .Title }}</strong> {{ getChange .Change }}
-	</h2>
+	<div class="diff-block">
+		<h2 class="diff-block-title">
+			<i class="diff-circle diff-circle-{{ getChange .Change }} fa fa-circle"></i>
+			<strong class="diff-title">{{ .Title }}</strong> {{ getChange .Change }}
+		</h2>
 
 
-	<!-- Overview -->
-	{{ if .Old }}
-		<div class="change list-change diff-label">{{ .Old }}</div>
-    	<i class="diff-arrow fa fa-long-arrow-right"></i>
-	{{ end }}
-	{{ if .New }}
-			<div class="change list-change diff-label">{{ .New }}</div>
-	{{ end }}
+		<!-- Overview -->
+		{{ if .Old }}
+			<div class="change list-change diff-label">{{ .Old }}</div>
+			<i class="diff-arrow fa fa-long-arrow-right"></i>
+		{{ end }}
+		{{ if .New }}
+				<div class="change list-change diff-label">{{ .New }}</div>
+		{{ end }}
 
-	{{ if .LineStart }}
-		<a class="change list-linenum diff-linenum btn btn-inverse btn-small"
-			ng-click="ctrl.goToLine(link)"
-			line-link="{{ .LineStart }}"
-			line-display="{{ .LineStart }}"
-			switch-view="ctrl.getDiff('html')">
-			
-			Line {{ .LineStart }}
+		{{ if .LineStart }}
+			<a class="change list-linenum diff-linenum btn btn-inverse btn-small"
+				ng-click="ctrl.goToLine(link)"
+				line-link="{{ .LineStart }}"
+				line-display="{{ .LineStart }}"
+				switch-view="ctrl.getDiff('html')">
+				
+				Line {{ .LineStart }}
 
-			{{ if .LineEnd }}
-				- {{ .LineEnd }}
-			{{ end }}
-		</a>
-	{{ end }} 
+				{{ if .LineEnd }}
+					- {{ .LineEnd }}
+				{{ end }}
+			</a>
+		{{ end }} 
+
+	</div>
 
 	<!-- Basic Changes -->
 	{{ range .Changes }}
+		<ul class="diff-change-container">
 		{{ template "change" . }}
+		</ul>
 	{{ end }}
 
 	<!-- Basic Summary -->
@@ -279,47 +276,49 @@ var (
 
 	// tplChange is the template for changes
 	tplChange = `{{ define "change" -}}
-<li>
-	<span>{{ getChange .Change }} {{ .Key }}</span>
-	
-	<div>
-		{{ if .Old }}
-			{{ .Old }} ->
-		{{ end }}
-
-		{{ if .New }}
-			{{ .New }}
-		{{ end }}
-	</div>
-
-	{{ if .LineStart }}
-		<a class="change list-linenum diff-linenum btn btn-inverse btn-small"
-			ng-click="ctrl.goToLine(link)"
-			line-link="{{ .LineStart }}"
-			line-display="{{ .LineStart }}"
-			switch-view="ctrl.getDiff('html')">
-			
-			Line {{ .LineStart }}
-
-			{{ if .LineEnd }}
-				- {{ .LineEnd }}
+<li class="diff-change-group">
+	<span class="bullet-position-container">
+		<div class="diff-change-item diff-change-title">{{ getChange .Change }} {{ .Key }}</div>
+		
+		<div class="diff-change-item">
+			{{ if .Old }}
+				<div class="change list-change diff-label">{{ .Old }}</div>
+				<i class="diff-arrow fa fa-long-arrow-right"></i>
 			{{ end }}
-		</a>
-	{{ end }}
+			{{ if .New }}
+					<div class="change list-change diff-label">{{ .New }}</div>
+			{{ end }}
+		</div>
 
+		{{ if .LineStart }}
+			<a class="change list-linenum diff-linenum btn btn-inverse btn-small"
+				ng-click="ctrl.goToLine(link)"
+				line-link="{{ .LineStart }}"
+				line-display="{{ .LineStart }}"
+				switch-view="ctrl.getDiff('html')">
+				
+				Line {{ .LineStart }}
+
+				{{ if .LineEnd }}
+					- {{ .LineEnd }}
+				{{ end }}
+			</a>
+		{{ end }}
+	</span>
+</li>
 {{ end }}`
 
 	// tplSummary is for basis summaries
 	tplSummary = `{{ define "summary" -}}
 <div class="diff-group-name">
-	<i class="diff-circle diff-circle-changed fa fa-circle-o"></i>
+	<i class="diff-circle diff-circle-{{ getChange .Change }} fa fa-circle-o"></i>
 	
 	{{ if .Count }}
 		<strong>{{ .Count }}</strong>
 	{{ end }}
 
 	{{ if .Key }}
-		<strong>{{ .Key }}</strong>
+		<strong class="diff-summary-key">{{ .Key }}</strong>
 		{{ getChange .Change }}
 	{{ end }}
 
