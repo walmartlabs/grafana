@@ -169,7 +169,7 @@
 
 .diff-group {
   background: $diff-group-bg;
-  font-size: $font-size-root;
+  font-size: 16px;
   font-style: normal;
   padding: 10px 15px;
   margin: 1rem 0;
@@ -180,10 +180,13 @@
 .diff-group-name {
   display: inline-block;
   width: 100%;
-  font-size: $font-size-root;
-  margin-left: 1em;
-  padding-right: 1em;
-  color: $text-muted;
+  font-size: 16px;
+  padding-left: 1.75em;
+  margin: 0 0 14px 0;
+}
+
+.diff-summary-key {
+  padding-left: .25em;
 }
 
 .diff-list {
@@ -219,4 +222,43 @@
 
 .diff-arrow {
   color: $diff-arrow-color;
+}
+
+.diff-block {
+  width: 100%;
+  display: inline-block;
+}
+
+.diff-block-title {
+  font-size: 16px;
+  display: inline-block;
+}
+
+.diff-title {
+  font-size: 16px;
+}
+
+.diff-change-container {
+  margin: 0 0;
+  padding-left: 3em;
+  padding-right: 0;
+}
+
+.diff-change-group {
+  width: 100%;
+  color: rgba(223,224,225, .6);
+  margin-bottom: 14px;
+}
+
+.diff-change-item {
+  display: inline-block;
+}
+
+.diff-change-title {
+  font-size: 16px;
+}
+
+.bullet-position-container {
+  position: relative;
+  left: -6px;
 }
