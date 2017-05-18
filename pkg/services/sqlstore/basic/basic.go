@@ -242,18 +242,11 @@ var (
 		{{ end }}
 
 		{{ if .LineStart }}
-			<a class="change list-linenum diff-linenum btn btn-inverse btn-small"
-				ng-click="ctrl.goToLine(link)"
+			<diff-link-json
 				line-link="{{ .LineStart }}"
-				line-display="{{ .LineStart }}"
-				switch-view="ctrl.getDiff('html')">
-				
-				Line {{ .LineStart }}
-
-				{{ if .LineEnd }}
-					- {{ .LineEnd }}
-				{{ end }}
-			</a>
+				line-display="{{ .LineStart }}{{ if .LineEnd }} - {{ .LineEnd }}{{ end }}"
+				switch-view="ctrl.getDiff('html')"
+			/>
 		{{ end }} 
 
 	</div>
@@ -291,18 +284,11 @@ var (
 		</div>
 
 		{{ if .LineStart }}
-			<a class="change list-linenum diff-linenum btn btn-inverse btn-small"
-				ng-click="ctrl.goToLine(link)"
+			<diff-link-json
 				line-link="{{ .LineStart }}"
-				line-display="{{ .LineStart }}"
-				switch-view="ctrl.getDiff('html')">
-				
-				Line {{ .LineStart }}
-
-				{{ if .LineEnd }}
-					- {{ .LineEnd }}
-				{{ end }}
-			</a>
+				line-display="{{ .LineStart }}{{ if .LineEnd }} - {{ .LineEnd }}{{ end }}"
+				switch-view="ctrl.getDiff('html')"
+			/>
 		{{ end }}
 	</span>
 </li>
@@ -311,7 +297,7 @@ var (
 	// tplSummary is for basis summaries
 	tplSummary = `{{ define "summary" -}}
 <div class="diff-group-name">
-	<i class="diff-circle diff-circle-{{ getChange .Change }} fa fa-circle-o"></i>
+	<i class="diff-circle diff-circle-{{ getChange .Change }} fa fa-circle-o diff-list-circle"></i>
 	
 	{{ if .Count }}
 		<strong>{{ .Count }}</strong>
@@ -323,18 +309,11 @@ var (
 	{{ end }}
 
 	{{ if .LineStart }}
-		<a class="change list-linenum diff-linenum btn btn-inverse btn-small"
-			ng-click="ctrl.goToLine(link)"
+		<diff-link-json
 			line-link="{{ .LineStart }}"
-			line-display="{{ .LineStart }}"
-			switch-view="ctrl.getDiff('html')">
-			
-			Line {{ .LineStart }}
-
-			{{ if .LineEnd }}
-				- {{ .LineEnd }}
-			{{ end }}
-		</a>
+			line-display="{{ .LineStart }}{{ if .LineEnd }} - {{ .LineEnd }}{{ end }}"
+			switch-view="ctrl.getDiff('html')"
+		/>
 	{{ end }}
 </div>
 {{ end }}`
