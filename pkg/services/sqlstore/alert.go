@@ -266,7 +266,7 @@ func SetAlertState(cmd *m.SetAlertStateCommand) error {
 }
 
 func SetAlertEvalDate(cmd *m.SetAlertEvalDateCmd) error {
-	return inTransaction(func(sess *xorm.Session) error {
+	return inTransaction(func(sess *DBSession) error {
 		alert := m.Alert{}
 		if has, err := sess.Id(cmd.AlertId).Get(&alert); err != nil {
 			return err
@@ -348,7 +348,7 @@ func GetMissingAlerts(query *m.GetMissingAlertsQuery) error {
 
 	//Get current timestamp
 	var ts int64 = -1
-	err := inTransaction(func(sess *xorm.Session) error {
+	err := inTransaction(func(sess *DBSession) error {
 		results, err := sess.Query("select " + dialect.CurrentTimeToRoundMinSql() + " as ts ")
 		if err != nil {
 			sqlog.Error("Failed to get timestamp", "error", err)

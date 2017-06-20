@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/go-xorm/xorm"
 	"github.com/grafana/grafana/pkg/bus"
 	m "github.com/grafana/grafana/pkg/models"
 )
@@ -57,7 +56,7 @@ func InsertActiveNodeHeartbeat(cmd *m.SaveActiveNodeCommand) error {
 		return errors.New(errmsg)
 	}
 	var ts int64 = -1
-	err := inTransaction(func(sess *xorm.Session) error {
+	err := inTransaction(func(sess *DBSession) error {
 
 		results, err := sess.Query("select " + dialect.CurrentTimeToRoundMinSql() + " as ts ")
 		if err != nil {
@@ -103,7 +102,7 @@ func InsertActiveNodeHeartbeat(cmd *m.SaveActiveNodeCommand) error {
 }
 
 func InsertNodeProcessingMissingAlert(cmd *m.SaveNodeProcessingMissingAlertCommand) error {
-	return inTransaction(func(sess *xorm.Session) error {
+	return inTransaction(func(sess *DBSession) error {
 		results, err := sess.Query("select " + dialect.CurrentTimeToRoundMinSql() + " as ts ")
 		if err != nil {
 			sqlog.Error("Failed to get timestamp", "error", err)
