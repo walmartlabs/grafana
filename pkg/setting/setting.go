@@ -34,8 +34,9 @@ const (
 	DEV                          string = "development"
 	PROD                         string = "production"
 	TEST                         string = "test"
-	DEFAULT_ALERT_EVALTIME_LIMIT int64  = 21600 //time in seconds
+	DEFAULT_ALERT_EVALTIME_LIMIT int64  = 21600 //time in seconds = 6 hrs
 	DEFAULT_MISSING_ALERT_COUNT  int    = 500
+	DEFAULT_MISSING_ALERTS_DELAY int64  = 600 // 10 mins delay
 )
 
 var (
@@ -173,6 +174,7 @@ var (
 	ClusteringEnabled              bool
 	MaxAlertEvalTimeLimitInSeconds int64 = DEFAULT_ALERT_EVALTIME_LIMIT
 	MaxMissingAlertCount           int   = DEFAULT_MISSING_ALERT_COUNT
+	DefaultMissingAlertsDelay      int64 = DEFAULT_MISSING_ALERTS_DELAY
 )
 
 type CommandLineArgs struct {
@@ -579,6 +581,7 @@ func NewConfigContext(args *CommandLineArgs) error {
 	ClusteringEnabled = clustering.Key("enabled").MustBool(true)
 	MaxAlertEvalTimeLimitInSeconds = clustering.Key("max_alert_evaltime_limit_seconds").MustInt64(DEFAULT_ALERT_EVALTIME_LIMIT)
 	MaxMissingAlertCount = clustering.Key("max_missing_alert_count").MustInt(DEFAULT_MISSING_ALERT_COUNT)
+	DefaultMissingAlertsDelay = clustering.Key("default_missing_alerts_delay").MustInt64(DEFAULT_MISSING_ALERTS_DELAY)
 
 	readSessionConfig()
 	readSmtpSettings()

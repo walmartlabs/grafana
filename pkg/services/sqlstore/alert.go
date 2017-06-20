@@ -374,18 +374,24 @@ func GetMissingAlerts(query *m.GetMissingAlertsQuery) error {
 	}
 
 	//Find Missing alerts
-	var evalTime int64
 	var frequency int64
+	var actualEvalTime int64
+	var expectedLastEvalTime int64
+	var elapsedTimeThreshold int64 = ts - s.MaxAlertEvalTimeLimitInSeconds
+
 	missedAlerts := make([]*m.Alert, 0)
 	missingAlertCount := 0
 	for _, alert := range cmd.Result {
 		if missingAlertCount <= s.MaxMissingAlertCount { //Max no of missing alerts processed = MaxMissingAlertCount
-			evalTime = alert.EvalDate.Unix()
+			actualEvalTime = alert.EvalDate.Unix()
 			frequency = alert.Frequency
-			lowerbound := frequency * 2
-			if lowerbound < s.MaxAlertEvalTimeLimitInSeconds && //backward eval time should not not less than MaxAlertEvalTimeLimitInSeconds
-				evalTime < ts-frequency &&
-				evalTime >= ts-lowerbound {
+			if frequency < s.DefaultMissingAlertsDelay {
+				expectedLastEvalTime = ts - s.DefaultMissingAlertsDelay
+			} else {
+				expectedLastEvalTime = ts - (frequency + s.DefaultMissingAlertsDelay)
+			}
+
+			if actualEvalTime < expectedLastEvalTime && actualEvalTime >= elapsedTimeThreshold {
 				missedAlerts = append(missedAlerts, alert)
 				missingAlertCount++
 			}
