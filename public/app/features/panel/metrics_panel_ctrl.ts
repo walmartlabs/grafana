@@ -31,6 +31,7 @@ class MetricsPanelCtrl extends PanelCtrl {
   skipDataOnInit: boolean;
   dataStream: any;
   dataSubscription: any;
+  dataList: any;
 
   constructor($scope, $injector) {
     super($scope, $injector);
@@ -92,7 +93,7 @@ class MetricsPanelCtrl extends PanelCtrl {
 
     // load datasource service
     this.setTimeQueryStart();
-    this.datasourceSrv.get(this.panel.datasource, this.panel.scopedVars)
+    this.datasourceSrv.get(this.panel.datasource)
     .then(this.updateTimeRange.bind(this))
     .then(this.issueQueries.bind(this))
     .then(this.handleQueryResult.bind(this))
@@ -106,6 +107,16 @@ class MetricsPanelCtrl extends PanelCtrl {
       this.loading = false;
       this.error = err.message || "Request Error";
       this.inspector = {error: err};
+
+      if (err.data) {
+        if (err.data.message) {
+          this.error = err.data.message;
+        }
+        if (err.data.error) {
+          this.error = err.data.error;
+        }
+      }
+
       this.events.emit('data-error', err);
       console.log('Panel data error:', err);
     });
@@ -136,7 +147,7 @@ class MetricsPanelCtrl extends PanelCtrl {
     this.calculateInterval();
 
     return this.datasource;
-  };
+  }
 
   calculateInterval() {
     var intervalOverride = this.panel.interval;
@@ -194,7 +205,7 @@ class MetricsPanelCtrl extends PanelCtrl {
     if (this.panel.hideTimeOverride) {
       this.timeInfo = '';
     }
-  };
+  }
 
   issueQueries(datasource) {
     this.datasource = datasource;

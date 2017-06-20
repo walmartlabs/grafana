@@ -5,36 +5,14 @@ import _ from 'lodash';
 class GrafanaDatasource {
 
   /** @ngInject */
-  constructor(private backendSrv) {}
+  constructor(private backendSrv, private $q) {}
 
   query(options) {
-    return this.backendSrv.post('/api/tsdb/query', {
-      from: options.range.from.valueOf().toString(),
-      to: options.range.to.valueOf().toString(),
-      queries: [
-        {
-          "refId": "A",
-          "scenarioId": "random_walk",
-          "intervalMs": options.intervalMs,
-          "maxDataPoints": options.maxDataPoints,
-        }
-      ]
-    }).then(res => {
+    return this.$q.when({data: []});
+  }
 
-      var data = [];
-      if (res.results) {
-        _.forEach(res.results, queryRes => {
-          for (let series of queryRes.series) {
-            data.push({
-              target: series.name,
-              datapoints: series.points
-            });
-          }
-        });
-      }
-
-      return {data: data};
-    });
+  metricFindQuery() {
+    return this.$q.when([]);
   }
 
   annotationQuery(options) {

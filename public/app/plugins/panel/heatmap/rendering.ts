@@ -5,9 +5,10 @@ import $ from 'jquery';
 import moment from 'moment';
 import kbn from 'app/core/utils/kbn';
 import {appEvents, contextSrv} from 'app/core/core';
+import {tickStep} from 'app/core/utils/ticks';
 import d3 from 'd3';
 import {HeatmapTooltip} from './heatmap_tooltip';
-import {convertToCards, mergeZeroBuckets, removeZeroBuckets} from './heatmap_data_converter';
+import {convertToCards, mergeZeroBuckets} from './heatmap_data_converter';
 
 let MIN_CARD_SIZE = 1,
     CARD_PADDING = 1,
@@ -93,7 +94,7 @@ export default function link(scope, elem, attrs, ctrl) {
   }
 
   function addXAxis() {
-    xScale = d3.scaleTime()
+    scope.xScale = xScale = d3.scaleTime()
       .domain([timeRange.from, timeRange.to])
       .range([0, chartWidth]);
 
@@ -146,7 +147,7 @@ export default function link(scope, elem, attrs, ctrl) {
       ticks: ticks
     };
 
-    yScale = d3.scaleLinear()
+    scope.yScale = yScale = d3.scaleLinear()
       .domain([y_min, y_max])
       .range([chartHeight, 0]);
 
@@ -205,7 +206,7 @@ export default function link(scope, elem, attrs, ctrl) {
       y_min = 1;
     }
 
-    yScale = d3.scaleLog()
+    scope.yScale = yScale = d3.scaleLog()
       .base(panel.yAxis.logBase)
       .domain([y_min, y_max])
       .range([chartHeight, 0]);
@@ -356,43 +357,33 @@ export default function link(scope, elem, attrs, ctrl) {
     addAxes();
 
     if (panel.yAxis.logBase !== 1) {
-      if (panel.yAxis.removeZeroValues) {
-        data.buckets = removeZeroBuckets(data.buckets);
-      } else {
-        let log_base = panel.yAxis.logBase;
-        let domain = yScale.domain();
-        let tick_values = logScaleTickValues(domain, log_base);
-        data.buckets = mergeZeroBuckets(data.buckets, _.min(tick_values));
-      }
+      let log_base = panel.yAxis.logBase;
+      let domain = yScale.domain();
+      let tick_values = logScaleTickValues(domain, log_base);
+      data.buckets = mergeZeroBuckets(data.buckets, _.min(tick_values));
     }
+
     let cardsData = convertToCards(data.buckets);
+    let maxValue = d3.max(cardsData, card => card.count);
 
-    let max_value = d3.max(cardsData, card => {
-      return card.values.length;
-    });
-
-    colorScale = getColorScale(max_value);
-    setOpacityScale(max_value);
+    colorScale = getColorScale(maxValue);
+    setOpacityScale(maxValue);
     setCardSize();
-
-    if (panel.color.fillBackground && panel.color.mode === 'spectrum') {
-      fillBackground(heatmap, colorScale(0));
-    }
 
     let cards = heatmap.selectAll(".heatmap-card").data(cardsData);
     cards.append("title");
     cards = cards.enter().append("rect")
-      .attr("x", getCardX)
-      .attr("width", getCardWidth)
-      .attr("y", getCardY)
-      .attr("height", getCardHeight)
-      .attr("rx", cardRound)
-      .attr("ry", cardRound)
-      .attr("class", "bordered heatmap-card")
-      .style("fill", getCardColor)
-      .style("stroke", getCardColor)
-      .style("stroke-width", 0)
-      .style("opacity", getCardOpacity);
+    .attr("x", getCardX)
+    .attr("width", getCardWidth)
+    .attr("y", getCardY)
+    .attr("height", getCardHeight)
+    .attr("rx", cardRound)
+    .attr("ry", cardRound)
+    .attr("class", "bordered heatmap-card")
+    .style("fill", getCardColor)
+    .style("stroke", getCardColor)
+    .style("stroke-width", 0)
+    .style("opacity", getCardOpacity);
 
     let $cards = $heatmap.find(".heatmap-card");
     $cards.on("mouseenter", (event) => {
@@ -406,24 +397,20 @@ export default function link(scope, elem, attrs, ctrl) {
   }
 
   function highlightCard(event) {
-    if (panel.highlightCards) {
-      let color = d3.select(event.target).style("fill");
-      let highlightColor = d3.color(color).darker(2);
-      let strokeColor = d3.color(color).brighter(4);
-      let current_card = d3.select(event.target);
-      tooltip.originalFillColor = color;
-      current_card.style("fill", highlightColor)
-        .style("stroke", strokeColor)
-        .style("stroke-width", 1);
-    }
+    let color = d3.select(event.target).style("fill");
+    let highlightColor = d3.color(color).darker(2);
+    let strokeColor = d3.color(color).brighter(4);
+    let current_card = d3.select(event.target);
+    tooltip.originalFillColor = color;
+    current_card.style("fill", highlightColor)
+    .style("stroke", strokeColor)
+    .style("stroke-width", 1);
   }
 
   function resetCardHighLight(event) {
-    if (panel.highlightCards) {
-      d3.select(event.target).style("fill", tooltip.originalFillColor)
-        .style("stroke", tooltip.originalFillColor)
-        .style("stroke-width", 0);
-    }
+    d3.select(event.target).style("fill", tooltip.originalFillColor)
+    .style("stroke", tooltip.originalFillColor)
+    .style("stroke-width", 0);
   }
 
   function getColorScale(maxValue) {
@@ -438,15 +425,15 @@ export default function link(scope, elem, attrs, ctrl) {
     return d3.scaleSequential(colorInterpolator).domain([start, end]);
   }
 
-  function setOpacityScale(max_value) {
+  function setOpacityScale(maxValue) {
     if (panel.color.colorScale === 'linear') {
       opacityScale = d3.scaleLinear()
-        .domain([0, max_value])
-        .range([0, 1]);
+      .domain([0, maxValue])
+      .range([0, 1]);
     } else if (panel.color.colorScale === 'sqrt') {
       opacityScale = d3.scalePow().exponent(panel.color.exponent)
-        .domain([0, max_value])
-        .range([0, 1]);
+      .domain([0, maxValue])
+      .range([0, 1]);
     }
   }
 
@@ -536,25 +523,16 @@ export default function link(scope, elem, attrs, ctrl) {
     if (panel.color.mode === 'opacity') {
       return panel.color.cardColor;
     } else {
-      return colorScale(d.values.length);
+      return colorScale(d.count);
     }
   }
 
   function getCardOpacity(d) {
     if (panel.color.mode === 'opacity') {
-      return opacityScale(d.values.length);
+      return opacityScale(d.count);
     } else {
       return 1;
     }
-  }
-
-  function fillBackground(heatmap, color) {
-    heatmap.insert("rect", "g")
-      .attr("x", yAxisWidth)
-      .attr("y", margin.top)
-      .attr("width", chartWidth)
-      .attr("height", chartHeight)
-      .attr("fill", color);
   }
 
   /////////////////////////////
@@ -564,17 +542,11 @@ export default function link(scope, elem, attrs, ctrl) {
   // Shared crosshair and tooltip
   appEvents.on('graph-hover', event => {
     drawSharedCrosshair(event.pos);
-
-    // Show shared tooltip
-    if (ctrl.dashboard.graphTooltip === 2) {
-      tooltip.show(event.pos, data);
-    }
-  });
+  }, scope);
 
   appEvents.on('graph-hover-clear', () => {
     clearCrosshair();
-    tooltip.destroy();
-  });
+  }, scope);
 
   function onMouseDown(event) {
     selection.active = true;
@@ -583,6 +555,7 @@ export default function link(scope, elem, attrs, ctrl) {
     mouseUpHandler = function() {
       onMouseUp();
     };
+
     $(document).one("mouseup", mouseUpHandler);
   }
 
@@ -659,11 +632,11 @@ export default function link(scope, elem, attrs, ctrl) {
 
       if (selectionWidth > MIN_SELECTION_WIDTH) {
         heatmap.append("rect")
-          .attr("class", "heatmap-selection")
-          .attr("x", selectionX)
-          .attr("width", selectionWidth)
-          .attr("y", chartTop)
-          .attr("height", chartHeight);
+        .attr("class", "heatmap-selection")
+        .attr("x", selectionX)
+        .attr("width", selectionWidth)
+        .attr("y", chartTop)
+        .attr("height", chartHeight);
       }
     }
   }
@@ -686,14 +659,14 @@ export default function link(scope, elem, attrs, ctrl) {
       posX = Math.min(posX, chartWidth + yAxisWidth);
 
       heatmap.append("g")
-        .attr("class", "heatmap-crosshair")
-        .attr("transform", "translate(" + posX + ",0)")
-        .append("line")
-        .attr("x1", 1)
-        .attr("y1", chartTop)
-        .attr("x2", 1)
-        .attr("y2", chartBottom)
-        .attr("stroke-width", 1);
+      .attr("class", "heatmap-crosshair")
+      .attr("transform", "translate(" + posX + ",0)")
+      .append("line")
+      .attr("x1", 1)
+      .attr("y1", chartTop)
+      .attr("x2", 1)
+      .attr("y2", chartBottom)
+      .attr("stroke-width", 1);
     }
   }
 
@@ -724,14 +697,14 @@ export default function link(scope, elem, attrs, ctrl) {
     var legendRects = legend.selectAll(".heatmap-color-legend-rect").data(valuesRange);
 
     legendRects.enter().append("rect")
-      .attr("x", d => d)
-      .attr("y", 0)
-      .attr("width", rangeStep + 1) // Overlap rectangles to prevent gaps
-      .attr("height", legendHeight)
-      .attr("stroke-width", 0)
-      .attr("fill", d => {
-        return legendColorScale(d);
-      });
+    .attr("x", d => d)
+    .attr("y", 0)
+    .attr("width", rangeStep + 1) // Overlap rectangles to prevent gaps
+    .attr("height", legendHeight)
+    .attr("stroke-width", 0)
+    .attr("fill", d => {
+      return legendColorScale(d);
+    });
   }
 
   function drawOpacityLegend() {
@@ -744,12 +717,12 @@ export default function link(scope, elem, attrs, ctrl) {
     let legendOpacityScale;
     if (panel.color.colorScale === 'linear') {
       legendOpacityScale = d3.scaleLinear()
-        .domain([0, legendWidth])
-        .range([0, 1]);
+      .domain([0, legendWidth])
+      .range([0, 1]);
     } else if (panel.color.colorScale === 'sqrt') {
       legendOpacityScale = d3.scalePow().exponent(panel.color.exponent)
-        .domain([0, legendWidth])
-        .range([0, 1]);
+      .domain([0, legendWidth])
+      .range([0, 1]);
     }
 
     let rangeStep = 1;
@@ -757,15 +730,15 @@ export default function link(scope, elem, attrs, ctrl) {
     var legendRects = legend.selectAll(".heatmap-opacity-legend-rect").data(valuesRange);
 
     legendRects.enter().append("rect")
-      .attr("x", d => d)
-      .attr("y", 0)
-      .attr("width", rangeStep)
-      .attr("height", legendHeight)
-      .attr("stroke-width", 0)
-      .attr("fill", panel.color.cardColor)
-      .style("opacity", d => {
-        return legendOpacityScale(d);
-      });
+    .attr("x", d => d)
+    .attr("y", 0)
+    .attr("width", rangeStep)
+    .attr("height", legendHeight)
+    .attr("stroke-width", 0)
+    .attr("fill", panel.color.cardColor)
+    .style("opacity", d => {
+      return legendOpacityScale(d);
+    });
   }
 
   function render() {
@@ -773,42 +746,38 @@ export default function link(scope, elem, attrs, ctrl) {
     panel = ctrl.panel;
     timeRange = ctrl.range;
 
-    if (setElementHeight()) {
-
-      if (data) {
-        // Draw default axes and return if no data
-        if (_.isEmpty(data.buckets)) {
-          addHeatmapCanvas();
-          addAxes();
-          return;
-        }
-
-        addHeatmap();
-        scope.yScale = yScale;
-        scope.xScale = xScale;
-        scope.yAxisWidth = yAxisWidth;
-        scope.xAxisHeight = xAxisHeight;
-        scope.chartHeight = chartHeight;
-        scope.chartWidth = chartWidth;
-        scope.chartTop = chartTop;
-
-        // Register selection listeners
-        $heatmap.on("mousedown", onMouseDown);
-        $heatmap.on("mousemove", onMouseMove);
-        $heatmap.on("mouseleave", onMouseLeave);
-      } else {
-        return;
-      }
-    }
-
     // Draw only if color editor is opened
     if (!d3.select("#heatmap-color-legend").empty()) {
       drawColorLegend();
     }
+
     if (!d3.select("#heatmap-opacity-legend").empty()) {
       drawOpacityLegend();
     }
+
+    if (!setElementHeight() || !data) {
+      return;
+    }
+
+    // Draw default axes and return if no data
+    if (_.isEmpty(data.buckets)) {
+      addHeatmapCanvas();
+      addAxes();
+      return;
+    }
+
+    addHeatmap();
+    scope.yAxisWidth = yAxisWidth;
+    scope.xAxisHeight = xAxisHeight;
+    scope.chartHeight = chartHeight;
+    scope.chartWidth = chartWidth;
+    scope.chartTop = chartTop;
   }
+
+  // Register selection listeners
+  $heatmap.on("mousedown", onMouseDown);
+  $heatmap.on("mousemove", onMouseMove);
+  $heatmap.on("mouseleave", onMouseLeave);
 }
 
 function grafanaTimeFormat(ticks, min, max) {
@@ -836,29 +805,6 @@ function grafanaTimeFormat(ticks, min, max) {
   return "%H:%M";
 }
 
-// Calculate tick step.
-// Implementation from d3-array (ticks.js)
-// https://github.com/d3/d3-array/blob/master/src/ticks.js
-function tickStep(start, stop, count) {
-  var e10 = Math.sqrt(50),
-      e5 = Math.sqrt(10),
-      e2 = Math.sqrt(2);
-
-  var step0 = Math.abs(stop - start) / Math.max(0, count),
-      step1 = Math.pow(10, Math.floor(Math.log(step0) / Math.LN10)),
-      error = step0 / step1;
-
-  if (error >= e10) {
-    step1 *= 10;
-  } else if (error >= e5) {
-    step1 *= 5;
-  } else if (error >= e2) {
-    step1 *= 2;
-  }
-
-  return stop < start ? -step1 : step1;
-}
-
 function logp(value, base) {
   return Math.log(value) / Math.log(base);
 }
@@ -871,9 +817,4 @@ function getPrecision(num) {
   } else {
     return str.length - dot_index - 1;
   }
-}
-
-function getTicksPrecision(values) {
-  let precisions = _.map(values, getPrecision);
-  return _.max(precisions);
 }

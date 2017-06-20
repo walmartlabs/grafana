@@ -15,6 +15,7 @@ class TimeSrv {
   oldRefresh: boolean;
   dashboard: any;
   timeAtLoad: any;
+  private autoRefreshBlocked: boolean;
 
   /** @ngInject **/
   constructor(private $rootScope, private $timeout, private $location, private timer, private contextSrv) {
@@ -23,6 +24,14 @@ class TimeSrv {
 
     $rootScope.$on('zoom-out', this.zoomOut.bind(this));
     $rootScope.$on('$routeUpdate', this.routeUpdated.bind(this));
+
+    document.addEventListener('visibilitychange', () => {
+      if (this.autoRefreshBlocked && document.visibilityState === 'visible') {
+        this.autoRefreshBlocked = false;
+
+        this.refreshDashboard();
+      }
+    });
   }
 
   init(dashboard) {
@@ -51,7 +60,7 @@ class TimeSrv {
     if (_.isString(this.time.to) && this.time.to.indexOf('Z') >= 0) {
       this.time.to = moment(this.time.to).utc();
     }
-  };
+  }
 
   private parseUrlParam(value) {
     if (value.indexOf('now') !== -1) {
@@ -83,7 +92,7 @@ class TimeSrv {
     if (params.refresh) {
       this.refresh = params.refresh || this.refresh;
     }
-  };
+  }
 
   private routeUpdated() {
     var params = this.$location.search();
@@ -137,13 +146,15 @@ class TimeSrv {
       this.startNextRefreshTimer(afterMs);
       if (this.contextSrv.isGrafanaVisible()) {
         this.refreshDashboard();
+      } else {
+        this.autoRefreshBlocked = true;
       }
     }, afterMs));
   }
 
   private cancelNextRefresh() {
     this.timer.cancel(this.refreshTimer);
-  };
+  }
 
   setTime(time, fromRouteUpdate?) {
     _.extend(this.time, time);
@@ -173,8 +184,8 @@ class TimeSrv {
   timeRangeForUrl() {
     var range = this.timeRange().raw;
 
-    if (moment.isMoment(range.from)) { range.from = range.from.valueOf(); }
-    if (moment.isMoment(range.to)) { range.to = range.to.valueOf(); }
+    if (moment.isMoment(range.from)) { range.from = range.from.valueOf().toString(); }
+    if (moment.isMoment(range.to)) { range.to = range.to.valueOf().toString(); }
 
     return range;
   }

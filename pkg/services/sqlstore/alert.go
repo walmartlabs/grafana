@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-xorm/xorm"
 	"github.com/grafana/grafana/pkg/bus"
 	m "github.com/grafana/grafana/pkg/models"
 	s "github.com/grafana/grafana/pkg/setting"
@@ -52,7 +51,7 @@ func GetAllAlertQueryHandler(query *m.GetAllAlertsQuery) error {
 	return nil
 }
 
-func deleteAlertByIdInternal(alertId int64, reason string, sess *xorm.Session) error {
+func deleteAlertByIdInternal(alertId int64, reason string, sess *DBSession) error {
 	sqlog.Debug("Deleting alert", "id", alertId, "reason", reason)
 
 	if _, err := sess.Exec("DELETE FROM alert WHERE id = ?", alertId); err != nil {
@@ -67,7 +66,7 @@ func deleteAlertByIdInternal(alertId int64, reason string, sess *xorm.Session) e
 }
 
 func DeleteAlertById(cmd *m.DeleteAlertCommand) error {
-	return inTransaction(func(sess *xorm.Session) error {
+	return inTransaction(func(sess *DBSession) error {
 		return deleteAlertByIdInternal(cmd.AlertId, "DeleteAlertCommand", sess)
 	})
 }
@@ -127,7 +126,7 @@ func HandleAlertsQuery(query *m.GetAlertsQuery) error {
 	return nil
 }
 
-func DeleteAlertDefinition(dashboardId int64, sess *xorm.Session) error {
+func DeleteAlertDefinition(dashboardId int64, sess *DBSession) error {
 	alerts := make([]*m.Alert, 0)
 	sess.Where("dashboard_id = ?", dashboardId).Find(&alerts)
 
@@ -139,7 +138,7 @@ func DeleteAlertDefinition(dashboardId int64, sess *xorm.Session) error {
 }
 
 func SaveAlerts(cmd *m.SaveAlertsCommand) error {
-	return inTransaction(func(sess *xorm.Session) error {
+	return inTransaction(func(sess *DBSession) error {
 		existingAlerts, err := GetAlertsByDashboardId2(cmd.DashboardId, sess)
 		if err != nil {
 			return err
@@ -157,7 +156,7 @@ func SaveAlerts(cmd *m.SaveAlertsCommand) error {
 	})
 }
 
-func upsertAlerts(existingAlerts []*m.Alert, cmd *m.SaveAlertsCommand, sess *xorm.Session) error {
+func upsertAlerts(existingAlerts []*m.Alert, cmd *m.SaveAlertsCommand, sess *DBSession) error {
 	for _, alert := range cmd.Alerts {
 		update := false
 		var alertToUpdate *m.Alert
@@ -175,6 +174,7 @@ func upsertAlerts(existingAlerts []*m.Alert, cmd *m.SaveAlertsCommand, sess *xor
 			if alertToUpdate.ContainsUpdates(alert) {
 				alert.Updated = time.Now()
 				alert.State = alertToUpdate.State
+				sess.MustCols("message")
 				_, err := sess.Id(alert.Id).Update(alert)
 				if err != nil {
 					return err
@@ -200,7 +200,7 @@ func upsertAlerts(existingAlerts []*m.Alert, cmd *m.SaveAlertsCommand, sess *xor
 	return nil
 }
 
-func deleteMissingAlerts(alerts []*m.Alert, cmd *m.SaveAlertsCommand, sess *xorm.Session) error {
+func deleteMissingAlerts(alerts []*m.Alert, cmd *m.SaveAlertsCommand, sess *DBSession) error {
 	for _, missingAlert := range alerts {
 		missing := true
 
@@ -219,7 +219,7 @@ func deleteMissingAlerts(alerts []*m.Alert, cmd *m.SaveAlertsCommand, sess *xorm
 	return nil
 }
 
-func GetAlertsByDashboardId2(dashboardId int64, sess *xorm.Session) ([]*m.Alert, error) {
+func GetAlertsByDashboardId2(dashboardId int64, sess *DBSession) ([]*m.Alert, error) {
 	alerts := make([]*m.Alert, 0)
 	err := sess.Where("dashboard_id = ?", dashboardId).Find(&alerts)
 
@@ -231,7 +231,7 @@ func GetAlertsByDashboardId2(dashboardId int64, sess *xorm.Session) ([]*m.Alert,
 }
 
 func SetAlertState(cmd *m.SetAlertStateCommand) error {
-	return inTransaction(func(sess *xorm.Session) error {
+	return inTransaction(func(sess *DBSession) error {
 		alert := m.Alert{}
 
 		if has, err := sess.Id(cmd.AlertId).Get(&alert); err != nil {
@@ -266,7 +266,7 @@ func SetAlertState(cmd *m.SetAlertStateCommand) error {
 }
 
 func SetAlertEvalDate(cmd *m.SetAlertEvalDateCmd) error {
-	return inTransaction(func(sess *xorm.Session) error {
+	return inTransaction(func(sess *DBSession) error {
 		alert := m.Alert{}
 		if has, err := sess.Id(cmd.AlertId).Get(&alert); err != nil {
 			return err
@@ -281,7 +281,7 @@ func SetAlertEvalDate(cmd *m.SetAlertEvalDateCmd) error {
 }
 
 func PauseAlert(cmd *m.PauseAlertCommand) error {
-	return inTransaction(func(sess *xorm.Session) error {
+	return inTransaction(func(sess *DBSession) error {
 		if len(cmd.AlertIds) == 0 {
 			return fmt.Errorf("command contains no alertids")
 		}
@@ -311,7 +311,7 @@ func PauseAlert(cmd *m.PauseAlertCommand) error {
 }
 
 func PauseAllAlerts(cmd *m.PauseAllAlertCommand) error {
-	return inTransaction(func(sess *xorm.Session) error {
+	return inTransaction(func(sess *DBSession) error {
 		var newState string
 		if cmd.Paused {
 			newState = string(m.AlertStatePaused)
@@ -348,7 +348,7 @@ func GetMissingAlerts(query *m.GetMissingAlertsQuery) error {
 
 	//Get current timestamp
 	var ts int64 = -1
-	err := inTransaction(func(sess *xorm.Session) error {
+	err := inTransaction(func(sess *DBSession) error {
 		results, err := sess.Query("select " + dialect.CurrentTimeToRoundMinSql() + " as ts ")
 		if err != nil {
 			sqlog.Error("Failed to get timestamp", "error", err)

@@ -12,7 +12,7 @@ export function exportSeriesListToCsv(seriesList) {
         });
     });
     saveSaveBlob(text, 'grafana_data_export.csv');
-};
+}
 
 export function exportSeriesListToCsvColumns(seriesList) {
     var text = 'sep=;\nTime;';
@@ -47,13 +47,13 @@ export function exportSeriesListToCsvColumns(seriesList) {
         text += '\n';
     }
     saveSaveBlob(text, 'grafana_data_export.csv');
-};
+}
 
 export function exportTableDataToCsv(table) {
     var text = 'sep=;\n';
     // add header
     _.each(table.columns, function(column) {
-        text += column.text + ';';
+        text += (column.title || column.text) + ';';
     });
     text += '\n';
     // process data
@@ -64,9 +64,9 @@ export function exportTableDataToCsv(table) {
         text += '\n';
     });
     saveSaveBlob(text, 'grafana_data_export.csv');
-};
+}
 
 export function saveSaveBlob(payload, fname) {
     var blob = new Blob([payload], { type: "text/csv;charset=utf-8" });
     window.saveAs(blob, fname);
-};
+}

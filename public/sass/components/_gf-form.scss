@@ -64,25 +64,20 @@ $gf-form-margin: 0.25rem;
     flex-grow: 1;
     min-height: 2.60rem;
   }
+
+  &--error {
+    color: $critical;
+  }
 }
 
-.gf-form-error {
-  padding: $input-padding-y $input-padding-x;
-  margin-right: $gf-form-margin;
-  flex-shrink: 0;
-
-  background-color: $input-label-bg;
+.gf-form-pre {
   display: block;
+  flex-grow: 1;
   font-size: $font-size-sm;
+  margin: 0;
   margin-right: $gf-form-margin;
-
-  border: $input-btn-border-width solid $red;
+  border: $input-btn-border-width solid transparent;
   @include border-radius($label-border-radius-sm);
-
-  &--grow {
-    flex-grow: 1;
-    min-height: 2.60rem;
-  }
 }
 
 .gf-form-checkbox {
@@ -166,6 +161,16 @@ $gf-form-margin: 0.25rem;
       pointer-events: none;
     }
   }
+}
+
+.gf-form-hint {
+  width: 100%;
+}
+
+.gf-form-hint-text {
+  display: block;
+  text-align: right;
+  padding-top: 0.5em;
 }
 
 .gf-form-select-wrapper {

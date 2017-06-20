@@ -3,8 +3,8 @@ package sqlstore
 import (
 	"bytes"
 	"fmt"
+	"time"
 
-	"github.com/go-xorm/xorm"
 	"github.com/grafana/grafana/pkg/bus"
 	"github.com/grafana/grafana/pkg/metrics"
 	m "github.com/grafana/grafana/pkg/models"
@@ -23,7 +23,7 @@ func init() {
 }
 
 func SaveDashboard(cmd *m.SaveDashboardCommand) error {
-	return inTransaction(func(sess *xorm.Session) error {
+	return inTransaction(func(sess *DBSession) error {
 		dash := cmd.GetDashboardModel()
 
 		// try get existing dashboard
@@ -69,17 +69,43 @@ func SaveDashboard(cmd *m.SaveDashboardCommand) error {
 			}
 		}
 
-		affectedRows := int64(0)
+		parentVersion := dash.Version
+		version, err := getMaxVersion(sess, dash.Id)
+		if err != nil {
+			return err
+		}
+		dash.Version = version
 
+		affectedRows := int64(0)
 		if dash.Id == 0 {
 			metrics.M_Models_Dashboard_Insert.Inc(1)
+			dash.Data.Set("version", dash.Version)
 			affectedRows, err = sess.Insert(dash)
 		} else {
-			dash.Version += 1
 			dash.Data.Set("version", dash.Version)
 			affectedRows, err = sess.Id(dash.Id).Update(dash)
 		}
+		if err != nil {
+			return err
+		}
+		if affectedRows == 0 {
+			return m.ErrDashboardNotFound
+		}
 
+		dashVersion := &m.DashboardVersion{
+			DashboardId:   dash.Id,
+			ParentVersion: parentVersion,
+			RestoredFrom:  -1,
+			Version:       dash.Version,
+			Created:       time.Now(),
+			CreatedBy:     dash.UpdatedBy,
+			Message:       cmd.Message,
+			Data:          dash.Data,
+		}
+		affectedRows, err = sess.Insert(dashVersion)
+		if err != nil {
+			return err
+		}
 		if affectedRows == 0 {
 			return m.ErrDashboardNotFound
 		}
@@ -220,7 +246,7 @@ func GetDashboardTags(query *m.GetDashboardTagsQuery) error {
 }
 
 func DeleteDashboard(cmd *m.DeleteDashboardCommand) error {
-	return inTransaction2(func(sess *session) error {
+	return inTransaction(func(sess *DBSession) error {
 		dashboard := m.Dashboard{Slug: cmd.Slug, OrgId: cmd.OrgId}
 		has, err := sess.Get(&dashboard)
 		if err != nil {
@@ -234,6 +260,7 @@ func DeleteDashboard(cmd *m.DeleteDashboardCommand) error {
 			"DELETE FROM star WHERE dashboard_id = ? ",
 			"DELETE FROM dashboard WHERE id = ?",
 			"DELETE FROM playlist_item WHERE type = 'dashboard_by_id' AND value = ?",
+			"DELETE FROM dashboard_version WHERE dashboard_id = ?",
 		}
 
 		for _, sql := range deletes {
@@ -243,7 +270,7 @@ func DeleteDashboard(cmd *m.DeleteDashboardCommand) error {
 			}
 		}
 
-		if err := DeleteAlertDefinition(dashboard.Id, sess.Session); err != nil {
+		if err := DeleteAlertDefinition(dashboard.Id, sess); err != nil {
 			return nil
 		}
 

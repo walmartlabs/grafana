@@ -98,8 +98,8 @@ func SetEngine(engine *xorm.Engine) (err error) {
 		return fmt.Errorf("Sqlstore::Migration failed err: %v\n", err)
 	}
 
+	// Init repo instances
 	annotations.SetRepository(&SqlAnnotationRepo{})
-
 	return nil
 }
 
@@ -158,6 +158,7 @@ func getEngine() (*xorm.Engine, error) {
 	} else {
 		engine.SetMaxOpenConns(DbCfg.MaxOpenConn)
 		engine.SetMaxIdleConns(DbCfg.MaxIdleConn)
+		engine.SetLogger(&xorm.DiscardLogger{})
 		// engine.SetLogger(NewXormLogger(log.LvlInfo, log.New("sqlstore.xorm")))
 		// engine.ShowSQL = true
 		// engine.ShowInfo = true
@@ -198,6 +199,9 @@ func LoadConfig() {
 
 	if DbCfg.Type == "sqlite3" {
 		UseSQLite3 = true
+		// only allow one connection as sqlite3 has multi threading issues that casue table locks
+		// DbCfg.MaxIdleConn = 1
+		// DbCfg.MaxOpenConn = 1
 	}
 	DbCfg.SslMode = sec.Key("ssl_mode").String()
 	DbCfg.CaCertPath = sec.Key("ca_cert_path").String()
