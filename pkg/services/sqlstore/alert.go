@@ -179,7 +179,6 @@ func upsertAlerts(existingAlerts []*m.Alert, cmd *m.SaveAlertsCommand, sess *DBS
 				if err != nil {
 					return err
 				}
-
 				sqlog.Debug("Alert updated", "name", alert.Name, "id", alert.Id)
 			}
 		} else {
@@ -187,7 +186,6 @@ func upsertAlerts(existingAlerts []*m.Alert, cmd *m.SaveAlertsCommand, sess *DBS
 			alert.Created = time.Now()
 			alert.State = m.AlertStatePending
 			alert.NewStateDate = time.Now()
-
 			_, err := sess.Insert(alert)
 			if err != nil {
 				return err
@@ -345,7 +343,6 @@ func GetAlertStatesForDashboard(query *m.GetAlertStatesForDashboardQuery) error 
 }
 
 func GetMissingAlerts(query *m.GetMissingAlertsQuery) error {
-
 	//Get current timestamp
 	var ts int64 = -1
 	err := inTransaction(func(sess *DBSession) error {
@@ -373,19 +370,31 @@ func GetMissingAlerts(query *m.GetMissingAlertsQuery) error {
 		return err
 	}
 
-	//Find Missing alerts
-	var evalTime int64
-	var frequency int64
+	var currentTime = time.Unix(ts, 0)
+	sqlog.Info("currentTime", "currentTime", currentTime)
+	//fmt.Println("currentTime", currentTime)
+	var expectedLastEvalTime time.Time
+	var elapsedTimeThreshold = currentTime.Add(-time.Duration(s.MaxAlertEvalTimeLimitInSeconds) * time.Second)
+
 	missedAlerts := make([]*m.Alert, 0)
 	missingAlertCount := 0
 	for _, alert := range cmd.Result {
 		if missingAlertCount <= s.MaxMissingAlertCount { //Max no of missing alerts processed = MaxMissingAlertCount
-			evalTime = alert.EvalDate.Unix()
-			frequency = alert.Frequency
-			lowerbound := frequency * 2
-			if lowerbound < s.MaxAlertEvalTimeLimitInSeconds && //backward eval time should not not less than MaxAlertEvalTimeLimitInSeconds
-				evalTime < ts-frequency &&
-				evalTime >= ts-lowerbound {
+
+			actualEvalTime := alert.EvalDate
+			frequency := alert.Frequency
+			sqlog.Info("alert evalDate from db", "EvalDate_Db", actualEvalTime)
+			//fmt.Println("alert evalDate from db", actualEvalTime)
+			if frequency < s.DefaultMissingAlertsDelay {
+				expectedLastEvalTime = currentTime.Add(-time.Duration(s.DefaultMissingAlertsDelay) * time.Second)
+			} else {
+				duration := frequency + s.DefaultMissingAlertsDelay
+				expectedLastEvalTime = currentTime.Add(-time.Duration(duration) * time.Second)
+			}
+			sqlog.Info("expectedLastEvalTime", "expectedLastEvalTime", expectedLastEvalTime)
+			//fmt.Println("expectedLastEvalTime", expectedLastEvalTime)
+			if actualEvalTime.Before(expectedLastEvalTime) && actualEvalTime.After(elapsedTimeThreshold) {
+				sqlog.Info("Got a missing alert", alert)
 				missedAlerts = append(missedAlerts, alert)
 				missingAlertCount++
 			}

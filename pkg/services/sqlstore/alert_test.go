@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"fmt"
+
 	"github.com/grafana/grafana/pkg/components/simplejson"
 	m "github.com/grafana/grafana/pkg/models"
 	. "github.com/smartystreets/goconvey/convey"
@@ -182,12 +184,14 @@ func TestAlertingDataAccess(t *testing.T) {
 		})
 
 		Convey("Get Missing alerts", func() {
-
+			fmt.Println("Test")
 			currentTime := time.Now().Round(time.Second)
-			currentTimeLessFrequency := time.Unix(currentTime.Unix()-120-30, 0)
-			currentTimeLess2Frequency := time.Unix(currentTime.Unix()-2*120+30, 0)
-			currentTimeLess60s := time.Unix(currentTime.Unix()-60, 0)
-			currentTimeLess3Frequency := time.Unix(currentTime.Unix()-3*120, 0)
+			actualEvalTime1 := currentTime
+			//fmt.Println("Alert EvalDate", actualEvalTime1)
+			actualEvalTime2 := time.Unix(currentTime.Unix()-1800, 0)
+			actualEvalTime3 := time.Unix(currentTime.Unix()-120, 0)
+			actualEvalTime4 := time.Unix(currentTime.Unix()-25200, 0)
+			actualEvalTime5 := time.Unix(currentTime.Unix()-300, 0)
 
 			multipleAlerts := []*m.Alert{
 				{
@@ -196,8 +200,8 @@ func TestAlertingDataAccess(t *testing.T) {
 					Name:        "4",
 					OrgId:       1,
 					Settings:    simplejson.New(),
-					Frequency:   120,
-					EvalDate:    currentTime,
+					Frequency:   60,              // 1 min
+					EvalDate:    actualEvalTime1, //currentTime (not a missed alert)
 				},
 				{
 					DashboardId: testDash.Id,
@@ -205,8 +209,8 @@ func TestAlertingDataAccess(t *testing.T) {
 					Name:        "5",
 					OrgId:       1,
 					Settings:    simplejson.New(),
-					Frequency:   120,
-					EvalDate:    currentTimeLessFrequency,
+					Frequency:   900,             // 15 min
+					EvalDate:    actualEvalTime2, // currentTime-30min (missed alert)
 				},
 				{
 					DashboardId: testDash.Id,
@@ -214,8 +218,8 @@ func TestAlertingDataAccess(t *testing.T) {
 					Name:        "6",
 					OrgId:       1,
 					Settings:    simplejson.New(),
-					Frequency:   120,
-					EvalDate:    currentTimeLess2Frequency,
+					Frequency:   60,              // 1 min
+					EvalDate:    actualEvalTime3, // currentTime-2min (not a missed alert)
 				},
 				{
 					DashboardId: testDash.Id,
@@ -223,8 +227,8 @@ func TestAlertingDataAccess(t *testing.T) {
 					Name:        "7",
 					OrgId:       1,
 					Settings:    simplejson.New(),
-					Frequency:   120,
-					EvalDate:    currentTimeLess60s,
+					Frequency:   10800,           // 3hrs
+					EvalDate:    actualEvalTime4, // currentTime-7hrs (not a missed alert)
 				},
 				{
 					DashboardId: testDash.Id,
@@ -232,26 +236,8 @@ func TestAlertingDataAccess(t *testing.T) {
 					Name:        "8",
 					OrgId:       1,
 					Settings:    simplejson.New(),
-					Frequency:   120,
-					EvalDate:    currentTimeLess3Frequency,
-				},
-				{
-					DashboardId: testDash.Id,
-					PanelId:     9,
-					Name:        "9",
-					OrgId:       1,
-					Settings:    simplejson.New(),
-					Frequency:   14400,                                  //4hrs
-					EvalDate:    time.Unix(currentTime.Unix()-18000, 0), //5 hours before currrent time
-				},
-				{
-					DashboardId: testDash.Id,
-					PanelId:     10,
-					Name:        "10",
-					OrgId:       1,
-					Settings:    simplejson.New(),
-					Frequency:   9000,                                   //2.5 hrs
-					EvalDate:    time.Unix(currentTime.Unix()-18000, 0), //5 hours before current time
+					Frequency:   600,             //10 min
+					EvalDate:    actualEvalTime5, // currentTime-5min (not a missed alert)
 				},
 			}
 
@@ -264,7 +250,7 @@ func TestAlertingDataAccess(t *testing.T) {
 				queryForMissedAlerts := m.GetMissingAlertsQuery{}
 				err1 := GetMissingAlerts(&queryForMissedAlerts)
 				So(err1, ShouldBeNil)
-				So(len(queryForMissedAlerts.Result), ShouldEqual, 3)
+				So(len(queryForMissedAlerts.Result), ShouldEqual, 1)
 			})
 		})
 
