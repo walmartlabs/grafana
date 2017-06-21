@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"fmt"
+
 	"github.com/grafana/grafana/pkg/components/simplejson"
 	m "github.com/grafana/grafana/pkg/models"
 	. "github.com/smartystreets/goconvey/convey"
@@ -182,9 +184,10 @@ func TestAlertingDataAccess(t *testing.T) {
 		})
 
 		Convey("Get Missing alerts", func() {
-
+			fmt.Println("Test")
 			currentTime := time.Now().Round(time.Second)
 			actualEvalTime1 := currentTime
+			//fmt.Println("Alert EvalDate", actualEvalTime1)
 			actualEvalTime2 := time.Unix(currentTime.Unix()-1800, 0)
 			actualEvalTime3 := time.Unix(currentTime.Unix()-120, 0)
 			actualEvalTime4 := time.Unix(currentTime.Unix()-25200, 0)
