@@ -56,38 +56,54 @@ func InsertActiveNodeHeartbeat(cmd *m.SaveActiveNodeCommand) error {
 		return errors.New(errmsg)
 	}
 	var ts int64 = -1
-	err := inTransaction(func(sess *DBSession) error {
+	retryCount := 3
+	var err error
+	for retryCount > 0 {
+		err = inTransaction(func(sess *DBSession) error {
 
-		results, err := sess.Query("select " + dialect.CurrentTimeToRoundMinSql() + " as ts ")
+			results, err := sess.Query("select " + dialect.CurrentTimeToRoundMinSql() + " as ts ")
+			if err != nil {
+				errmsg := "Failed to get timestamp"
+				sqlog.Debug(errmsg, "error", err)
+				return errors.New(errmsg + ": " + err.Error())
+			}
+			ts, err = strconv.ParseInt(string(results[0]["ts"]), 10, 64)
+			if err != nil {
+				errmsg := "Failed to get timestamp"
+				sqlog.Debug(errmsg, "error", err)
+				return errors.New(errmsg + ": " + err.Error())
+			}
+			results, err = sess.Query(getNextPartIDSQL, ts, cmd.Node.AlertStatus)
+			if err != nil {
+				errmsg := "Failed to get next part_id"
+				sqlog.Debug(errmsg, "error", err)
+				return errors.New(errmsg + ": " + err.Error())
+			}
+			partID, err := strconv.ParseInt(string(results[0]["part_id"]), 10, 64)
+			if err != nil {
+				errmsg := "Failed to get next part_id"
+				sqlog.Debug(errmsg, "error", err)
+				return errors.New(errmsg + ": " + err.Error())
+			}
+			_, err = sess.Exec(insertHeartbeatSQL, cmd.Node.NodeId, ts, partID, cmd.Node.AlertRunType, cmd.Node.AlertStatus)
+			if err != nil {
+				errmsg := "Failed to insert heartbeat"
+				sqlog.Debug(errmsg, "error", err)
+				return errors.New(errmsg + ": " + err.Error())
+			}
+			sqlog.Debug("Active node heartbeat inserted", "id", cmd.Node.Id)
+			return nil
+		})
 		if err != nil {
-			sqlog.Error("Failed to get timestamp", "error", err)
-			return err
+			sqlog.Debug("Insert heartbeat tx failed. Retrying...", "error", err)
+		} else {
+			break
 		}
-		ts, err = strconv.ParseInt(string(results[0]["ts"]), 10, 64)
-		if err != nil {
-			sqlog.Error("Failed to get timestamp", "error", err)
-			return err
-		}
-		results, err = sess.Query(getNextPartIDSQL, ts, cmd.Node.AlertStatus)
-		if err != nil {
-			sqlog.Error("Failed to get next part_id", "error", err)
-			return err
-		}
-		partID, err := strconv.ParseInt(string(results[0]["part_id"]), 10, 64)
-		if err != nil {
-			sqlog.Error("Failed to get next part_id", "error", err)
-			return err
-		}
-		_, err = sess.Exec(insertHeartbeatSQL, cmd.Node.NodeId, ts, partID, cmd.Node.AlertRunType, cmd.Node.AlertStatus)
-		if err != nil {
-			sqlog.Error("Failed to insert heartbeat", "error", err)
-			return err
-		}
-		sqlog.Debug("Active node heartbeat inserted", "id", cmd.Node.Id)
-		return nil
-	})
+		retryCount--
+	}
+
 	if err != nil {
-		sqlog.Error("Transaction failed", "error", err)
+		sqlog.Error("Insert heartbeat tx failed", "error", err)
 		return err
 	}
 	if cmd.FetchResult {
