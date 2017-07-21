@@ -7,11 +7,15 @@ import (
 
 	"github.com/grafana/grafana/pkg/bus"
 	m "github.com/grafana/grafana/pkg/models"
+	"github.com/grafana/grafana/pkg/setting"
 )
 
 var (
-	insertHeartbeatSQL = "insert into active_node(node_id, heartbeat, part_id, alert_run_type, alert_status) values(?, ?, ?, ?, ?)"
-	getNextPartIDSQL   = "select count(part_id) as part_id from active_node where heartbeat = ? and alert_status = ?"
+	insertHeartbeatSQL  = "insert into active_node(node_id, heartbeat, part_id, alert_run_type, alert_status) values(?, ?, ?, ?, ?)"
+	getNextPartIDSQL    = "select count(part_id) as part_id from active_node where heartbeat = ? and alert_status = ?"
+	lastCleanupCheckSQL = "select * from active_node as a where a.heartbeat > ? and a.heartbeat <= ? and alert_run_type='" + m.CLN_ALERT_RUN_TYPE_CLEANUP + "'"
+	deleteHearbeatSQL   = "delete from active_node where heartbeat < ?"
+	deleteAnnotationSQL = "delete from annotation where epoch < ?"
 )
 
 func init() {
@@ -21,6 +25,8 @@ func init() {
 	bus.AddHandler("sql", GetLastDBTimeInterval)
 	bus.AddHandler("sql", GetActiveNodesCount)
 	bus.AddHandler("sql", GetNodeProcessingMissingAlerts)
+	bus.AddHandler("sql", ClusteringCleanup)
+	bus.AddHandler("sql", ClusteringCleanupCheck)
 }
 
 func GetActiveNodeByIdHeartbeat(query *m.GetActiveNodeByIdHeartbeatQuery) error {
@@ -84,6 +90,10 @@ func InsertActiveNodeHeartbeat(cmd *m.SaveActiveNodeCommand) error {
 				errmsg := "Failed to get next part_id"
 				sqlog.Debug(errmsg, "error", err)
 				return errors.New(errmsg + ": " + err.Error())
+			}
+			if cmd.ParticipantLimit > 0 && partID == int64(cmd.ParticipantLimit) {
+				retryCount = 0
+				return errors.New("Participant limit reached")
 			}
 			_, err = sess.Exec(insertHeartbeatSQL, cmd.Node.NodeId, ts, partID, cmd.Node.AlertRunType, cmd.Node.AlertStatus)
 			if err != nil {
@@ -166,6 +176,7 @@ func validAlertRunType(status string) bool {
 	switch status {
 	case m.CLN_ALERT_RUN_TYPE_MISSING:
 	case m.CLN_ALERT_RUN_TYPE_NORMAL:
+	case m.CLN_ALERT_RUN_TYPE_CLEANUP:
 	default:
 		return false
 	}
@@ -217,4 +228,64 @@ func GetNodeProcessingMissingAlerts(cmd *m.GetNodeProcessingMissingAlertsCommand
 	}
 	cmd.Result = &retNode
 	return nil
+}
+
+func ClusteringCleanupCheck(cmd *m.ClusteringCleanupCheckCommand) error {
+	sqlog.Debug("ClusteringCleanupCheck called")
+	lasthb := cmd.LastHeartbeat
+	results, err1 := x.Query(lastCleanupCheckSQL, lasthb-int64(setting.ClusteringCleanupPeriod), lasthb)
+	if err1 != nil {
+		sqlog.Warn("Cleanup check failed", "error", err1)
+		cmd.Result = false
+		return err1
+	}
+	if len(results) > 0 {
+		sqlog.Debug("Cheanup is already done")
+		cmd.Result = false
+		return nil
+	}
+	cmd.Result = true
+	return nil
+}
+
+func ClusteringCleanup(cmd *m.ClusteringCleanupCommand) error {
+	sqlog.Debug("ClusteringCleanup called")
+	lasthb := cmd.LastHeartbeat
+	var reterr error
+	txerr := inTransaction(func(sess *DBSession) error {
+		result, err := sess.Exec(deleteHearbeatSQL, lasthb-int64(setting.ClusteringHBRetention))
+		if err != nil {
+			sqlog.Error("Heartbeat cleanup failed", "error", err)
+			return err
+		}
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			sqlog.Error("Heartbeat cleanup failed", "error", err)
+			return err
+		}
+		sqlog.Info("'active_node' table cleanup done", "rows deleted", rowsAffected)
+		return nil
+	})
+	if txerr != nil {
+		reterr = txerr
+	}
+	txerr = inTransaction(func(sess *DBSession) error {
+		annoresult, err := sess.Exec(deleteAnnotationSQL, lasthb-int64(setting.AnnotationRetention))
+		if err != nil {
+			sqlog.Error("Annotation cleanup failed", "error", err)
+			return err
+		}
+		rowsAffected, err := annoresult.RowsAffected()
+		if err != nil {
+			sqlog.Error("Annotation cleanup failed", "error", err)
+			return err
+		}
+		sqlog.Info("'annotation' table cleanup done", "rows deleted", rowsAffected)
+		return nil
+	})
+	if reterr == nil && txerr != nil {
+		reterr = txerr
+	}
+	return reterr
+
 }

@@ -12,7 +12,7 @@ import (
 
 type ClusterNodeMgmt interface {
 	GetNodeId() (string, error)
-	CheckIn(alertingState *AlertingState) error
+	CheckIn(alertingState *AlertingState, participantLimit int) error
 	GetNode(heartbeat int64) (*m.ActiveNode, error)
 	CheckInNodeProcessingMissingAlerts(alertingState *AlertingState) error
 	GetActiveNodesCount(heartbeat int64) (int, error)
@@ -57,7 +57,7 @@ func (node *ClusterNode) GetNodeId() (string, error) {
 	return node.nodeId, nil
 }
 
-func (node *ClusterNode) CheckIn(alertingState *AlertingState) error {
+func (node *ClusterNode) CheckIn(alertingState *AlertingState, participantLimit int) error {
 	if node == nil {
 		return errors.New("Cluster node object is nil")
 	}
@@ -67,7 +67,8 @@ func (node *ClusterNode) CheckIn(alertingState *AlertingState) error {
 			AlertRunType: alertingState.run_type,
 			AlertStatus:  alertingState.status,
 		},
-		FetchResult: false,
+		ParticipantLimit: participantLimit,
+		FetchResult:      false,
 	}
 	node.log.Debug("Sending command ", "SaveActiveNodeCommand:Node", cmd.Node)
 	if err := bus.Dispatch(cmd); err != nil {
