@@ -98,9 +98,10 @@ func scheduleAlertsForPartition(cmd *ScheduleAlertsForPartitionCommand) error {
 	filterCount := 0
 	intervalEnd := time.Unix(cmd.Interval, 0).Add(time.Minute)
 	for _, rule := range rules {
+		evalDateTrunc := rule.EvalDate.Truncate(time.Minute)
 		// handle frequency greater than 1 min
-		nextEvalDate := rule.EvalDate.Add(time.Duration(rule.Frequency) * time.Second)
-		if nextEvalDate.Before(intervalEnd) {
+		nextEvalDate := evalDateTrunc.Add(time.Duration(rule.Frequency) * time.Second)
+		if nextEvalDate.Before(intervalEnd) || nextEvalDate.Equal(intervalEnd) {
 			if rule.Id%int64(cmd.NodeCount) == int64(cmd.PartId) {
 				engine.execQueue <- &Job{Rule: rule}
 				filterCount++
