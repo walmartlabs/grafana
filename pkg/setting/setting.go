@@ -32,12 +32,15 @@ const (
 )
 
 const (
-	DEV                          string = "development"
-	PROD                         string = "production"
-	TEST                         string = "test"
-	DEFAULT_ALERT_EVALTIME_LIMIT int64  = 21600 //time in seconds = 6 hrs
-	DEFAULT_MISSING_ALERT_COUNT  int    = 500
-	DEFAULT_MISSING_ALERTS_DELAY int64  = 600 // 10 mins delay
+	DEV                                    string = "development"
+	PROD                                   string = "production"
+	TEST                                   string = "test"
+	DEFAULT_ALERT_EVALTIME_LIMIT           int64  = 21600 //time in seconds = 6 hrs
+	DEFAULT_MISSING_ALERT_COUNT            int    = 500
+	DEFAULT_MISSING_ALERTS_DELAY           int64  = 600     // 10 mins delay
+	DEFAULT_CLUSTERING_CLEANUP_PERIOD      int    = 86400   // 1 day
+	DEFAULT_CLUSTERING_HB_RETENSION_PERIOD int    = 86400   // 1 day
+	DEFAULT_ANNOTATION_RETENSION_PERIOD    int    = 1209600 // 14 days
 )
 
 var (
@@ -177,6 +180,9 @@ var (
 	MaxAlertEvalTimeLimitInSeconds int64 = DEFAULT_ALERT_EVALTIME_LIMIT
 	MaxMissingAlertCount           int   = DEFAULT_MISSING_ALERT_COUNT
 	DefaultMissingAlertsDelay      int64 = DEFAULT_MISSING_ALERTS_DELAY
+	ClusteringCleanupPeriod        int
+	ClusteringHBRetention          int
+	AnnotationRetention            int
 )
 
 type CommandLineArgs struct {
@@ -588,6 +594,9 @@ func NewConfigContext(args *CommandLineArgs) error {
 	MaxAlertEvalTimeLimitInSeconds = clustering.Key("max_alert_evaltime_limit_seconds").MustInt64(DEFAULT_ALERT_EVALTIME_LIMIT)
 	MaxMissingAlertCount = clustering.Key("max_missing_alert_count").MustInt(DEFAULT_MISSING_ALERT_COUNT)
 	DefaultMissingAlertsDelay = clustering.Key("default_missing_alerts_delay").MustInt64(DEFAULT_MISSING_ALERTS_DELAY)
+	ClusteringCleanupPeriod = clustering.Key("cleanup_period").MustInt(DEFAULT_CLUSTERING_CLEANUP_PERIOD)
+	ClusteringHBRetention = clustering.Key("hb_retention_period").MustInt(DEFAULT_CLUSTERING_HB_RETENSION_PERIOD)
+	AnnotationRetention = clustering.Key("annotation_retention_period").MustInt(DEFAULT_ANNOTATION_RETENSION_PERIOD)
 
 	readSessionConfig()
 	readSmtpSettings()

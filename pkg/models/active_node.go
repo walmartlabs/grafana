@@ -12,6 +12,7 @@ type ActiveNode struct {
 
 const (
 	CLN_ALERT_RUN_TYPE_MISSING  = "missing"
+	CLN_ALERT_RUN_TYPE_CLEANUP  = "cleanup"
 	CLN_ALERT_RUN_TYPE_NORMAL   = "normal"
 	CLN_ALERT_STATUS_OFF        = "off"
 	CLN_ALERT_STATUS_READY      = "ready"
@@ -26,9 +27,10 @@ type GetActiveNodeByIdHeartbeatQuery struct {
 }
 
 type SaveActiveNodeCommand struct {
-	Node        *ActiveNode
-	FetchResult bool
-	Result      *ActiveNode
+	Node             *ActiveNode
+	ParticipantLimit int
+	FetchResult      bool
+	Result           *ActiveNode
 }
 
 type SaveNodeProcessingMissingAlertCommand struct {
@@ -53,4 +55,12 @@ type GetActiveNodesCountCommand struct {
 
 type GetNodeProcessingMissingAlertsCommand struct {
 	Result *ActiveNode
+}
+
+type ClusteringCleanupCommand struct {
+	LastHeartbeat int64
+}
+type ClusteringCleanupCheckCommand struct {
+	LastHeartbeat int64
+	Result        bool
 }

@@ -29,6 +29,7 @@ type ClusterManager struct {
 const (
 	DISPATCHER_TASK_TYPE_ALERTS_PARTITION = 0
 	DISPATCHER_TASK_TYPE_ALERTS_MISSING   = 1
+	DISPATCHER_TASK_TYPE_CLEANUP          = 2
 )
 
 type DispatcherTaskStatus struct {
@@ -96,6 +97,7 @@ func (cm *ClusterManager) clusterMgrTicker(ctx context.Context) error {
 	}()
 	cm.log.Info("clusterMgrTicker started")
 	ticksCounter := 0
+	cleanupCheck := false
 	for {
 		select {
 		case <-ctx.Done():
@@ -103,9 +105,21 @@ func (cm *ClusterManager) clusterMgrTicker(ctx context.Context) error {
 			return ctx.Err()
 		case <-cm.ticker.C: // ticks every second
 			if ticksCounter%60 == 0 {
-				cm.clusterNodeMgmt.CheckIn(cm.alertingState)
+				if cm.alertingState.run_type != m.CLN_ALERT_RUN_TYPE_CLEANUP {
+					if err := cm.clusterNodeMgmt.CheckIn(cm.alertingState, -1); err != nil {
+						cm.log.Error("Failed to checkin", "error", err.Error())
+					}
+				}
+			}
+			if ticksCounter%setting.ClusteringCleanupPeriod == 0 {
+				cleanupCheck = true
 			}
 			if ticksCounter%30 == 0 {
+				if cleanupCheck {
+					if cm.cleanupScheduler() {
+						cleanupCheck = false
+					}
+				}
 				if setting.AlertingEnabled && setting.ExecuteAlerts {
 					cm.alertsScheduler()
 				}
@@ -128,15 +142,55 @@ func (cm *ClusterManager) handleDispatcherTaskStatus(taskStatus *DispatcherTaskS
 		if taskStatus.success {
 			cm.changeAlertingState(m.CLN_ALERT_STATUS_PROCESSING)
 		}
+	case DISPATCHER_TASK_TYPE_CLEANUP:
+		if taskStatus.success {
+			cm.log.Info("Cleanup task completed")
+			cm.changeAlertingStateAndRunType(m.CLN_ALERT_STATUS_READY, m.CLN_ALERT_RUN_TYPE_NORMAL)
+		}
 	default:
 		cm.log.Error("Status received on unsupported task type "+string(taskStatus.taskType),
 			"status", taskStatus.success, "error", taskStatus.errmsg)
 	}
 
 	if !taskStatus.success {
-		cm.log.Error("Failed to dispatch task", "error", taskStatus.errmsg)
-		cm.changeAlertingState(m.CLN_ALERT_STATUS_READY)
+		cm.log.Error("Failed to dispatch/execute task", "error", taskStatus.errmsg)
+		cm.changeAlertingStateAndRunType(m.CLN_ALERT_STATUS_READY, m.CLN_ALERT_RUN_TYPE_NORMAL)
 	}
+}
+
+func (cm *ClusterManager) cleanupScheduler() bool {
+	if cm.alertingState.status != m.CLN_ALERT_STATUS_READY {
+		return false
+	}
+	tscmd := &m.GetLastDBTimeIntervalQuery{}
+	if err := bus.Dispatch(tscmd); err != nil {
+		cm.log.Error("Failed to get last heartbeat", "error", err)
+		return true
+	}
+	ts := tscmd.Result
+	checkcmd := &m.ClusteringCleanupCheckCommand{LastHeartbeat: ts}
+	if err := bus.Dispatch(checkcmd); err != nil {
+		cm.log.Error("Cleanup check failed", "error", err)
+		return true
+	}
+	if !checkcmd.Result {
+		cm.log.Info("Cleanup check : cleanup is already done")
+		return true
+	}
+	cm.changeAlertingStateAndRunType(m.CLN_ALERT_STATUS_SCHEDULING, m.CLN_ALERT_RUN_TYPE_CLEANUP)
+	if err := cm.clusterNodeMgmt.CheckIn(cm.alertingState, 1); err != nil {
+		cm.log.Debug("Failed to checkin", "error", err.Error())
+		cm.log.Info("Other node is running cleanup job")
+		cm.changeAlertingStateAndRunType(m.CLN_ALERT_STATUS_READY, m.CLN_ALERT_RUN_TYPE_NORMAL)
+		return true // some other node is doing cleanup
+	}
+	cm.log.Info("Scheduling cleanup")
+	dispatchTask := &DispatcherTask{
+		taskType: DISPATCHER_TASK_TYPE_CLEANUP,
+		taskInfo: ts,
+	}
+	cm.dispatcherTaskQ <- dispatchTask
+	return true
 }
 
 func (cm *ClusterManager) alertsScheduler() {
@@ -257,12 +311,12 @@ func (cm *ClusterManager) alertRulesDispatcher(ctx context.Context) error {
 			cm.log.Info("alertRulesDispatcher Done")
 			return ctx.Err()
 		case task := <-cm.dispatcherTaskQ:
-			cm.handleAlertRulesDispatcherTask(task)
+			cm.handleDispatcherTask(task)
 		}
 	}
 }
 
-func (cm *ClusterManager) handleAlertRulesDispatcherTask(task *DispatcherTask) {
+func (cm *ClusterManager) handleDispatcherTask(task *DispatcherTask) {
 	var err error = nil
 	switch task.taskType {
 	case DISPATCHER_TASK_TYPE_ALERTS_PARTITION:
@@ -273,14 +327,20 @@ func (cm *ClusterManager) handleAlertRulesDispatcherTask(task *DispatcherTask) {
 			PartId:    taskInfo.partId,
 		}
 		err = bus.Dispatch(scheduleCmd)
-		cm.log.Info("Alert rules dispatcher - submitted normal alerts batch")
+		cm.log.Info("Dispatcher - submitted normal alerts batch")
 	case DISPATCHER_TASK_TYPE_ALERTS_MISSING:
 		taskInfo := task.taskInfo.(*DispatcherTaskAlertsMissing)
 		scheduleCmd := &alerting.ScheduleMissingAlertsCommand{
 			MissingAlerts: taskInfo.missingAlerts,
 		}
 		err = bus.Dispatch(scheduleCmd)
-		cm.log.Info("Alert rules dispatcher - submitted missing alerts batch")
+		cm.log.Info("Dispatcher - submitted missing alerts batch")
+	case DISPATCHER_TASK_TYPE_CLEANUP:
+		ts := task.taskInfo.(int64)
+		cm.changeAlertingState(m.CLN_ALERT_STATUS_PROCESSING)
+		cm.log.Info("Dispatcher - running cleanup job")
+		cmd := &m.ClusteringCleanupCommand{LastHeartbeat: ts}
+		err = bus.Dispatch(cmd)
 	default:
 		err = errors.New("Invalid task type " + string(task.taskType))
 		cm.log.Error(err.Error())

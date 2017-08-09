@@ -85,7 +85,7 @@ func TestClusterManager(t *testing.T) {
 			// dispatch successful
 			handlers.scheduleAlertsForPartitionErr = nil
 			task := <-cm.dispatcherTaskQ
-			cm.handleAlertRulesDispatcherTask(task)
+			cm.handleDispatcherTask(task)
 			So(len(cm.dispatcherTaskStatus), ShouldEqual, 1)
 			status := <-cm.dispatcherTaskStatus
 			So(status.success, ShouldBeTrue)
@@ -113,7 +113,7 @@ func TestClusterManager(t *testing.T) {
 			// dispatch failed
 			handlers.scheduleAlertsForPartitionErr = errors.New("some error")
 			task = <-cm.dispatcherTaskQ
-			cm.handleAlertRulesDispatcherTask(task)
+			cm.handleDispatcherTask(task)
 			So(len(cm.dispatcherTaskStatus), ShouldEqual, 1)
 			status = <-cm.dispatcherTaskStatus
 			So(status.success, ShouldBeFalse)
@@ -173,7 +173,7 @@ func TestClusterManagerForMissingAlerts(t *testing.T) {
 			// normal alerts dispatch successful
 			handlers.scheduleAlertsForPartitionErr = nil
 			normalTask := <-cm.dispatcherTaskQ
-			cm.handleAlertRulesDispatcherTask(normalTask)
+			cm.handleDispatcherTask(normalTask)
 			So(len(cm.dispatcherTaskStatus), ShouldEqual, 1)
 			status := <-cm.dispatcherTaskStatus
 			cm.handleDispatcherTaskStatus(status)
@@ -190,7 +190,7 @@ func TestClusterManagerForMissingAlerts(t *testing.T) {
 			// missing alerts dispatch successful
 			handlers.scheduleMissingAlertsErr = nil
 			missingAlertTask := <-cm.dispatcherTaskQ
-			cm.handleAlertRulesDispatcherTask(missingAlertTask)
+			cm.handleDispatcherTask(missingAlertTask)
 			missingAlertTaskStatus := <-cm.dispatcherTaskStatus
 			So(missingAlertTaskStatus.success, ShouldBeTrue)
 			So(missingAlertTaskStatus.taskType, ShouldEqual, DISPATCHER_TASK_TYPE_ALERTS_MISSING)
@@ -251,7 +251,7 @@ func (cn *mockClusterNodeMgmt) GetNodeId() (string, error) {
 	cn.callCountGetNodeId++
 	return cn.nodeId, cn.retError
 }
-func (cn *mockClusterNodeMgmt) CheckIn(alertingState *AlertingState) error {
+func (cn *mockClusterNodeMgmt) CheckIn(alertingState *AlertingState, participantLimit int) error {
 	cn.callCountCheckIn++
 	return cn.retError
 }
