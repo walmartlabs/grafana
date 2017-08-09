@@ -11,8 +11,7 @@ import TimeSeries from 'app/core/time_series2';
 import moment from 'moment';
 import { Emitter } from 'app/core/core';
 import rendering from '../rendering';
-import { convertToHeatMap } from '../heatmap_data_converter';
-// import d3 from 'd3';
+import {convertToHeatMap, convertToCards} from '../heatmap_data_converter';
 
 describe('grafanaHeatmap', function () {
 
@@ -115,8 +114,9 @@ describe('grafanaHeatmap', function () {
           let bucketsData = convertToHeatMap(ctx.series, ctx.data.yBucketSize, ctx.data.xBucketSize, logBase);
           ctx.data.buckets = bucketsData;
 
-          // console.log("bucketsData", bucketsData);
-          // console.log("series", ctrl.panel.yAxis.logBase, ctx.series.length);
+          let {cards, cardStats} = convertToCards(bucketsData);
+          ctx.data.cards = cards;
+          ctx.data.cardStats = cardStats;
 
           let elemHtml = `
           <div class="heatmap-wrapper">
@@ -153,11 +153,11 @@ describe('grafanaHeatmap', function () {
     it('should draw correct X axis', function () {
       var xTicks = getTicks(ctx.element, ".axis-x");
       let expectedTicks = [
-        formatLocalTime("01 Mar 2017 10:00:00"),
-        formatLocalTime("01 Mar 2017 10:15:00"),
-        formatLocalTime("01 Mar 2017 10:30:00"),
-        formatLocalTime("01 Mar 2017 10:45:00"),
-        formatLocalTime("01 Mar 2017 11:00:00")
+        formatTime("01 Mar 2017 10:00:00"),
+        formatTime("01 Mar 2017 10:15:00"),
+        formatTime("01 Mar 2017 10:30:00"),
+        formatTime("01 Mar 2017 10:45:00"),
+        formatTime("01 Mar 2017 11:00:00")
       ];
       expect(xTicks).to.eql(expectedTicks);
     });
@@ -204,7 +204,7 @@ describe('grafanaHeatmap', function () {
 
     it('should draw correct Y axis', function () {
       var yTicks = getTicks(ctx.element, ".axis-y");
-      expect(yTicks).to.eql(['1', '32', '1 K']);
+      expect(yTicks).to.eql(['1', '32', '1.0 K']);
     });
   });
 
@@ -221,7 +221,7 @@ describe('grafanaHeatmap', function () {
 
     it('should draw correct Y axis', function () {
       var yTicks = getTicks(ctx.element, ".axis-y");
-      expect(yTicks).to.eql(['1', '1 K', '1 Mil']);
+      expect(yTicks).to.eql(['1', '1 K', '1.0 Mil']);
     });
   });
 
@@ -247,7 +247,7 @@ describe('grafanaHeatmap', function () {
 
     it('should draw correct Y axis', function () {
       var yTicks = getTicks(ctx.element, ".axis-y");
-      expect(yTicks).to.eql(['0 ns', '17 min', '33 min', '50 min', '1 hour']);
+      expect(yTicks).to.eql(['0 ns', '17 min', '33 min', '50 min', '1.11 hour']);
     });
   });
 
@@ -261,7 +261,7 @@ function getTicks(element, axisSelector) {
     }).get();
 }
 
-function formatLocalTime(timeStr) {
+function formatTime(timeStr) {
   let format = "HH:mm";
-  return moment.utc(timeStr, 'DD MMM YYYY HH:mm:ss').local().format(format);
+  return moment.utc(timeStr, 'DD MMM YYYY HH:mm:ss').format(format);
 }

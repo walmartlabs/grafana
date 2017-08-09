@@ -51,6 +51,7 @@ function elasticHistogramToHeatmap(seriesList) {
  * @return {Array}          Array of "card" objects
  */
 function convertToCards(buckets) {
+  let min = 0, max = 0;
   let cards = [];
   _.forEach(buckets, xBucket => {
     _.forEach(xBucket.buckets, yBucket=> {
@@ -62,10 +63,19 @@ function convertToCards(buckets) {
         count: yBucket.count,
       };
       cards.push(card);
+
+      if (cards.length === 1) {
+        min = yBucket.count;
+        max = yBucket.count;
+      }
+
+      min = yBucket.count < min ? yBucket.count : min;
+      max = yBucket.count > max ? yBucket.count : max;
     });
   });
 
-  return cards;
+  let cardStats = {min, max};
+  return {cards, cardStats};
 }
 
 /**
@@ -192,30 +202,37 @@ function pushToXBuckets(buckets, point, bucketNum, seriesName) {
   if (value === null || value === undefined || isNaN(value)) { return; }
 
   // Add series name to point for future identification
-  point.push(seriesName);
+  let point_ext = _.concat(point, seriesName);
 
   if (buckets[bucketNum] && buckets[bucketNum].values) {
     buckets[bucketNum].values.push(value);
-    buckets[bucketNum].points.push(point);
+    buckets[bucketNum].points.push(point_ext);
   } else {
     buckets[bucketNum] = {
       x: bucketNum,
       values: [value],
-      points: [point]
+      points: [point_ext]
     };
   }
 }
 
 function pushToYBuckets(buckets, bucketNum, value, point, bounds) {
+  var count = 1;
+  // Use the 3rd argument as scale/count
+  if (point.length > 3) {
+    count = parseInt(point[2]);
+  }
   if (buckets[bucketNum]) {
     buckets[bucketNum].values.push(value);
-    buckets[bucketNum].count += 1;
+    buckets[bucketNum].points.push(point);
+    buckets[bucketNum].count += count;
   } else {
     buckets[bucketNum] = {
       y: bucketNum,
       bounds: bounds,
       values: [value],
-      count: 1,
+      points: [point],
+      count: count,
     };
   }
 }

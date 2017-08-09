@@ -28,8 +28,8 @@ function (angular, _, dateMath) {
 
       _.each(options.targets, function(target) {
         if (!target.metric) { return; }
-        qs.push(convertTargetToQuery(target, options));
-      });
+        qs.push(convertTargetToQuery(target, options, this.tsdbVersion));
+      }.bind(this));
 
       var queries = _.compact(qs);
 
@@ -51,6 +51,10 @@ function (angular, _, dateMath) {
             groupByTags[key] = true;
           });
         }
+      });
+
+      options.targets = _.filter(options.targets, function(query) {
+        return query.hide !== true;
       });
 
       return this.performTimeSeriesQuery(queries, start, end).then(function(response) {
@@ -366,7 +370,7 @@ function (angular, _, dateMath) {
       return label;
     }
 
-    function convertTargetToQuery(target, options) {
+    function convertTargetToQuery(target, options, tsdbVersion) {
       if (!target.metric || target.hide) {
         return null;
       }
@@ -392,6 +396,11 @@ function (angular, _, dateMath) {
 
         if (target.counterResetValue && target.counterResetValue.length) {
           query.rateOptions.resetValue = parseInt(target.counterResetValue);
+        }
+
+        if(tsdbVersion >= 2) {
+          query.rateOptions.dropResets = !query.rateOptions.counterMax &&
+                (!query.rateOptions.ResetValue || query.rateOptions.ResetValue === 0);
         }
       }
 

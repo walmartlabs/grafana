@@ -96,15 +96,18 @@ var (
 	SnapShotRemoveExpired bool
 
 	// User settings
-	AllowUserSignUp    bool
-	AllowUserOrgCreate bool
-	AutoAssignOrg      bool
-	AutoAssignOrgRole  string
-	VerifyEmailEnabled bool
-	LoginHint          string
-	DefaultTheme       string
-	DisableLoginForm   bool
-	DisableSignoutMenu bool
+	AllowUserSignUp         bool
+	AllowUserOrgCreate      bool
+	AutoAssignOrg           bool
+	AutoAssignOrgRole       string
+	VerifyEmailEnabled      bool
+	LoginHint               string
+	DefaultTheme            string
+	DisableLoginForm        bool
+	DisableSignoutMenu      bool
+	ExternalUserMngLinkUrl  string
+	ExternalUserMngLinkName string
+	ExternalUserMngInfo     string
 
 	// Http auth
 	AdminUser     string
@@ -321,7 +324,7 @@ func evalEnvVarExpression(value string) string {
 		envVar = strings.TrimSuffix(envVar, "}")
 		envValue := os.Getenv(envVar)
 
-		// if env variable is hostname and it is emtpy use os.Hostname as default
+		// if env variable is hostname and it is empty use os.Hostname as default
 		if envVar == "HOSTNAME" && envValue == "" {
 			envValue, _ = os.Hostname()
 		}
@@ -546,6 +549,9 @@ func NewConfigContext(args *CommandLineArgs) error {
 	VerifyEmailEnabled = users.Key("verify_email_enabled").MustBool(false)
 	LoginHint = users.Key("login_hint").String()
 	DefaultTheme = users.Key("default_theme").String()
+	ExternalUserMngLinkUrl = users.Key("external_manage_link_url").String()
+	ExternalUserMngLinkName = users.Key("external_manage_link_name").String()
+	ExternalUserMngInfo = users.Key("external_manage_info").String()
 
 	// auth
 	auth := Cfg.Section("auth")
@@ -659,14 +665,14 @@ func LogConfigurationInfo() {
 
 	if len(appliedCommandLineProperties) > 0 {
 		for _, prop := range appliedCommandLineProperties {
-			logger.Info("Config overriden from command line", "arg", prop)
+			logger.Info("Config overridden from command line", "arg", prop)
 		}
 	}
 
 	if len(appliedEnvOverrides) > 0 {
 		text.WriteString("\tEnvironment variables used:\n")
 		for _, prop := range appliedEnvOverrides {
-			logger.Info("Config overriden from Environment variable", "var", prop)
+			logger.Info("Config overridden from Environment variable", "var", prop)
 		}
 	}
 

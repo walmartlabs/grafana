@@ -53,7 +53,7 @@ func EnsureAdminUser() {
 		return
 	}
 
-	if statsQuery.Result.UserCount > 0 {
+	if statsQuery.Result.Users > 0 {
 		return
 	}
 
@@ -146,7 +146,7 @@ func getEngine() (*xorm.Engine, error) {
 			DbCfg.Path = filepath.Join(setting.DataPath, DbCfg.Path)
 		}
 		os.MkdirAll(path.Dir(DbCfg.Path), os.ModePerm)
-		cnnstr = "file:" + DbCfg.Path + "?cache=shared&mode=rwc&_loc=Local"
+		cnnstr = "file:" + DbCfg.Path + "?cache=shared&mode=rwc"
 	default:
 		return nil, fmt.Errorf("Unknown database type: %s", DbCfg.Type)
 	}
@@ -199,7 +199,7 @@ func LoadConfig() {
 
 	if DbCfg.Type == "sqlite3" {
 		UseSQLite3 = true
-		// only allow one connection as sqlite3 has multi threading issues that casue table locks
+		// only allow one connection as sqlite3 has multi threading issues that cause table locks
 		// DbCfg.MaxIdleConn = 1
 		// DbCfg.MaxOpenConn = 1
 	}

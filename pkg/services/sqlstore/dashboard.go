@@ -63,6 +63,7 @@ func SaveDashboard(cmd *m.SaveDashboardCommand) error {
 			if dash.Id != sameTitle.Id {
 				if cmd.Overwrite {
 					dash.Id = sameTitle.Id
+					dash.Version = sameTitle.Version
 				} else {
 					return m.ErrDashboardWithSameNameExists
 				}
@@ -70,24 +71,23 @@ func SaveDashboard(cmd *m.SaveDashboardCommand) error {
 		}
 
 		parentVersion := dash.Version
-		version, err := getMaxVersion(sess, dash.Id)
-		if err != nil {
-			return err
-		}
-		dash.Version = version
-
 		affectedRows := int64(0)
+
 		if dash.Id == 0 {
+			dash.Version = 1
 			metrics.M_Models_Dashboard_Insert.Inc(1)
 			dash.Data.Set("version", dash.Version)
 			affectedRows, err = sess.Insert(dash)
 		} else {
+			dash.Version += 1
 			dash.Data.Set("version", dash.Version)
 			affectedRows, err = sess.Id(dash.Id).Update(dash)
 		}
+
 		if err != nil {
 			return err
 		}
+
 		if affectedRows == 0 {
 			return m.ErrDashboardNotFound
 		}
@@ -95,18 +95,18 @@ func SaveDashboard(cmd *m.SaveDashboardCommand) error {
 		dashVersion := &m.DashboardVersion{
 			DashboardId:   dash.Id,
 			ParentVersion: parentVersion,
-			RestoredFrom:  -1,
+			RestoredFrom:  cmd.RestoredFrom,
 			Version:       dash.Version,
 			Created:       time.Now(),
 			CreatedBy:     dash.UpdatedBy,
 			Message:       cmd.Message,
 			Data:          dash.Data,
 		}
-		affectedRows, err = sess.Insert(dashVersion)
-		if err != nil {
+
+		// insert version entry
+		if affectedRows, err = sess.Insert(dashVersion); err != nil {
 			return err
-		}
-		if affectedRows == 0 {
+		} else if affectedRows == 0 {
 			return m.ErrDashboardNotFound
 		}
 
@@ -133,8 +133,9 @@ func SaveDashboard(cmd *m.SaveDashboardCommand) error {
 }
 
 func GetDashboard(query *m.GetDashboardQuery) error {
-	dashboard := m.Dashboard{Slug: query.Slug, OrgId: query.OrgId}
+	dashboard := m.Dashboard{Slug: query.Slug, OrgId: query.OrgId, Id: query.Id}
 	has, err := x.Get(&dashboard)
+
 	if err != nil {
 		return err
 	} else if has == false {
@@ -143,7 +144,6 @@ func GetDashboard(query *m.GetDashboardQuery) error {
 
 	dashboard.Data.Set("id", dashboard.Id)
 	query.Result = &dashboard
-
 	return nil
 }
 

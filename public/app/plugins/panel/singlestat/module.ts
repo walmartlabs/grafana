@@ -165,7 +165,7 @@ class SingleStatCtrl extends MetricsPanelCtrl {
       return;
     }
 
-    if (tableData[0].length === 0 || !tableData[0][0][this.panel.tableColumn]) {
+    if (tableData[0].length === 0 || tableData[0][0][this.panel.tableColumn] === undefined) {
       return;
     }
 
@@ -402,9 +402,9 @@ class SingleStatCtrl extends MetricsPanelCtrl {
     }
 
     function getValueText() {
-      var result = panel.prefix ? panel.prefix : '';
+      var result = panel.prefix ? templateSrv.replace(panel.prefix, data.scopedVars) : '';
       result += data.valueFormatted;
-      result += panel.postfix ? panel.postfix : '';
+      result += panel.postfix ? templateSrv.replace(panel.postfix, data.scopedVars) : '';
 
       return result;
     }

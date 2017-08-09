@@ -145,14 +145,14 @@ coreModule.directive('grafanaGraph', function($rootScope, timeSrv, popoverSrv) {
         }
 
         // add left axis labels
-        if (panel.yaxes[0].label) {
+        if (panel.yaxes[0].label && panel.yaxes[0].show) {
           var yaxisLabel = $("<div class='axisLabel left-yaxis-label flot-temp-elem'></div>")
           .text(panel.yaxes[0].label)
           .appendTo(elem);
         }
 
         // add right axis labels
-        if (panel.yaxes[1].label) {
+        if (panel.yaxes[1].label && panel.yaxes[1].show) {
           var rightLabel = $("<div class='axisLabel right-yaxis-label flot-temp-elem'></div>")
           .text(panel.yaxes[1].label)
           .appendTo(elem);
@@ -375,7 +375,11 @@ coreModule.directive('grafanaGraph', function($rootScope, timeSrv, popoverSrv) {
       }
 
       function translateFillOption(fill) {
-        return fill === 0 ? 0.001 : fill/10;
+        if (panel.percentage && panel.stack) {
+          return fill === 0 ? 0.001 : fill/10;
+        } else {
+          return fill/10;
+        }
       }
 
       function shouldDelayDraw(panel) {
@@ -422,21 +426,32 @@ coreModule.directive('grafanaGraph', function($rootScope, timeSrv, popoverSrv) {
 
       function addXHistogramAxis(options, bucketSize) {
         let ticks, min, max;
+        let defaultTicks = panelWidth / 50;
 
         if (data.length && bucketSize) {
           ticks = _.map(data[0].data, point => point[0]);
+          min = _.min(ticks);
+          max = _.max(ticks);
+
+          // Adjust tick step
+          let tickStep = bucketSize;
+          let ticks_num = Math.floor((max - min) / tickStep);
+          while (ticks_num > defaultTicks) {
+            tickStep = tickStep * 2;
+            ticks_num = Math.ceil((max - min) / tickStep);
+          }
 
           // Expand ticks for pretty view
-          min = Math.max(0, _.min(ticks) - bucketSize);
-          max = _.max(ticks) + bucketSize;
+          min = Math.floor(min / tickStep) * tickStep;
+          max = Math.ceil(max / tickStep) * tickStep;
 
           ticks = [];
-          for (let i = min; i <= max; i += bucketSize) {
+          for (let i = min; i <= max; i += tickStep) {
             ticks.push(i);
           }
         } else {
           // Set defaults if no data
-          ticks = panelWidth / 100;
+          ticks = defaultTicks / 2;
           min = 0;
           max = 1;
         }
@@ -450,6 +465,9 @@ coreModule.directive('grafanaGraph', function($rootScope, timeSrv, popoverSrv) {
           label: "Histogram",
           ticks: ticks
         };
+
+        // Use 'short' format for histogram values
+        configureAxisMode(options.xaxis, 'short');
       }
 
       function addXTableAxis(options) {
@@ -480,6 +498,7 @@ coreModule.directive('grafanaGraph', function($rootScope, timeSrv, popoverSrv) {
           logBase: panel.yaxes[0].logBase || 1,
           min: panel.yaxes[0].min ? _.toNumber(panel.yaxes[0].min) : null,
           max: panel.yaxes[0].max ? _.toNumber(panel.yaxes[0].max) : null,
+          tickDecimals: panel.yaxes[0].decimals !== null ? _.toNumber(panel.yaxes[0].decimals): null
         };
 
         options.yaxes.push(defaults);
@@ -492,6 +511,7 @@ coreModule.directive('grafanaGraph', function($rootScope, timeSrv, popoverSrv) {
           secondY.position = 'right';
           secondY.min = panel.yaxes[1].min ? _.toNumber(panel.yaxes[1].min) : null;
           secondY.max = panel.yaxes[1].max ? _.toNumber(panel.yaxes[1].max) : null;
+          secondY.tickDecimals = panel.yaxes[1].decimals !== null ? _.toNumber(panel.yaxes[1].decimals): null;
           options.yaxes.push(secondY);
 
           applyLogScale(options.yaxes[1], data);
@@ -505,6 +525,8 @@ coreModule.directive('grafanaGraph', function($rootScope, timeSrv, popoverSrv) {
         if (axis.logBase === 1) {
           return;
         }
+
+        const minSetToZero = axis.min === 0;
 
         if (axis.min < Number.MIN_VALUE) {
           axis.min = null;
@@ -555,12 +577,46 @@ coreModule.directive('grafanaGraph', function($rootScope, timeSrv, popoverSrv) {
           return;
         }
 
-        axis.ticks = [];
-        var nextTick;
-        for (nextTick = min; nextTick <= max; nextTick *= axis.logBase) {
-          axis.ticks.push(nextTick);
+        if (Number.isFinite(min) && Number.isFinite(max)) {
+          if (minSetToZero) {
+            axis.min = 0.1;
+            min = 1;
+          }
+
+          axis.ticks = generateTicksForLogScaleYAxis(min, max, axis.logBase);
+          if (minSetToZero) {
+            axis.ticks.unshift(0.1);
+          }
+          if (axis.ticks[axis.ticks.length - 1] > axis.max) {
+            axis.max = axis.ticks[axis.ticks.length - 1];
+          }
+        } else {
+          axis.ticks = [1, 2];
+          delete axis.min;
+          delete axis.max;
         }
-        axis.tickDecimals = decimalPlaces(min);
+      }
+
+      function generateTicksForLogScaleYAxis(min, max, logBase) {
+        let ticks = [];
+
+        var nextTick;
+        for (nextTick = min; nextTick <= max; nextTick *= logBase) {
+          ticks.push(nextTick);
+        }
+
+        const maxNumTicks = Math.ceil(ctrl.height/25);
+        const numTicks = ticks.length;
+        if (numTicks > maxNumTicks) {
+          const factor = Math.ceil(numTicks/maxNumTicks) * logBase;
+          ticks = [];
+
+          for (nextTick = min; nextTick <= (max * factor); nextTick *= factor) {
+            ticks.push(nextTick);
+          }
+        }
+
+        return ticks;
       }
 
       function decimalPlaces(num) {

@@ -5,10 +5,10 @@ import $ from 'jquery';
 import moment from 'moment';
 import kbn from 'app/core/utils/kbn';
 import {appEvents, contextSrv} from 'app/core/core';
-import {tickStep} from 'app/core/utils/ticks';
+import {tickStep, getScaledDecimals, getFlotTickSize} from 'app/core/utils/ticks';
 import d3 from 'd3';
 import {HeatmapTooltip} from './heatmap_tooltip';
-import {convertToCards, mergeZeroBuckets} from './heatmap_data_converter';
+import {mergeZeroBuckets} from './heatmap_data_converter';
 
 let MIN_CARD_SIZE = 1,
     CARD_PADDING = 1,
@@ -100,10 +100,17 @@ export default function link(scope, elem, attrs, ctrl) {
 
     let ticks = chartWidth / DEFAULT_X_TICK_SIZE_PX;
     let grafanaTimeFormatter = grafanaTimeFormat(ticks, timeRange.from, timeRange.to);
+    let timeFormat;
+    let dashboardTimeZone = ctrl.dashboard.getTimezone();
+    if (dashboardTimeZone === 'utc') {
+      timeFormat = d3.utcFormat(grafanaTimeFormatter);
+    } else {
+      timeFormat = d3.timeFormat(grafanaTimeFormatter);
+    }
 
     let xAxis = d3.axisBottom(xScale)
       .ticks(ticks)
-      .tickFormat(d3.timeFormat(grafanaTimeFormatter))
+      .tickFormat(timeFormat)
       .tickPadding(X_AXIS_TICK_PADDING)
       .tickSize(chartHeight);
 
@@ -131,7 +138,13 @@ export default function link(scope, elem, attrs, ctrl) {
     tick_interval = tickStep(y_min, y_max, ticks);
     ticks = Math.ceil((y_max - y_min) / tick_interval);
 
-    let decimals = panel.yAxis.decimals === null ? getPrecision(tick_interval) : panel.yAxis.decimals;
+    let decimalsAuto = getPrecision(tick_interval);
+    let decimals = panel.yAxis.decimals === null ? decimalsAuto : panel.yAxis.decimals;
+    // Calculate scaledDecimals for log scales using tick size (as in jquery.flot.js)
+    let flot_tick_size = getFlotTickSize(y_min, y_max, ticks, decimalsAuto);
+    let scaledDecimals = getScaledDecimals(decimals, flot_tick_size);
+    ctrl.decimals = decimals;
+    ctrl.scaledDecimals = scaledDecimals;
 
     // Set default Y min and max if no data
     if (_.isEmpty(data.buckets)) {
@@ -153,7 +166,7 @@ export default function link(scope, elem, attrs, ctrl) {
 
     let yAxis = d3.axisLeft(yScale)
       .ticks(ticks)
-      .tickFormat(tickValueFormatter(decimals))
+      .tickFormat(tickValueFormatter(decimals, scaledDecimals))
       .tickSizeInner(0 - width)
       .tickSizeOuter(0)
       .tickPadding(Y_AXIS_TICK_PADDING);
@@ -197,7 +210,7 @@ export default function link(scope, elem, attrs, ctrl) {
     let log_base = panel.yAxis.logBase;
     let {y_min, y_max} = adjustLogRange(data.heatmapStats.minLog, data.heatmapStats.max, log_base);
 
-    y_min = panel.yAxis.min !== null ? adjustLogMin(panel.yAxis.min, log_base) : y_min;
+    y_min = panel.yAxis.min && panel.yAxis.min !== '0' ? adjustLogMin(panel.yAxis.min, log_base) : y_min;
     y_max = panel.yAxis.max !== null ? adjustLogMax(panel.yAxis.max, log_base) : y_max;
 
     // Set default Y min and max if no data
@@ -213,7 +226,15 @@ export default function link(scope, elem, attrs, ctrl) {
 
     let domain = yScale.domain();
     let tick_values = logScaleTickValues(domain, log_base);
-    let decimals = panel.yAxis.decimals;
+
+    let decimalsAuto = getPrecision(y_min);
+    let decimals = panel.yAxis.decimals || decimalsAuto;
+
+    // Calculate scaledDecimals for log scales using tick size (as in jquery.flot.js)
+    let flot_tick_size = getFlotTickSize(y_min, y_max, tick_values.length, decimalsAuto);
+    let scaledDecimals = getScaledDecimals(decimals, flot_tick_size);
+    ctrl.decimals = decimals;
+    ctrl.scaledDecimals = scaledDecimals;
 
     data.yAxis = {
       min: y_min,
@@ -223,7 +244,7 @@ export default function link(scope, elem, attrs, ctrl) {
 
     let yAxis = d3.axisLeft(yScale)
       .tickValues(tick_values)
-      .tickFormat(tickValueFormatter(decimals))
+      .tickFormat(tickValueFormatter(decimals, scaledDecimals))
       .tickSizeInner(0 - width)
       .tickSizeOuter(0)
       .tickPadding(Y_AXIS_TICK_PADDING);
@@ -293,10 +314,10 @@ export default function link(scope, elem, attrs, ctrl) {
     return tickValues;
   }
 
-  function tickValueFormatter(decimals) {
+  function tickValueFormatter(decimals, scaledDecimals = null) {
     let format = panel.yAxis.format;
     return function(value) {
-      return kbn.valueFormats[format](value, decimals);
+      return kbn.valueFormats[format](value, decimals, scaledDecimals);
     };
   }
 
@@ -363,10 +384,12 @@ export default function link(scope, elem, attrs, ctrl) {
       data.buckets = mergeZeroBuckets(data.buckets, _.min(tick_values));
     }
 
-    let cardsData = convertToCards(data.buckets);
-    let maxValue = d3.max(cardsData, card => card.count);
+    let cardsData = data.cards;
+    let maxValueAuto = data.cardStats.max;
+    let maxValue = panel.color.max || maxValueAuto;
+    let minValue = panel.color.min || 0;
 
-    colorScale = getColorScale(maxValue);
+    colorScale = getColorScale(maxValue, minValue);
     setOpacityScale(maxValue);
     setCardSize();
 
@@ -413,14 +436,14 @@ export default function link(scope, elem, attrs, ctrl) {
     .style("stroke-width", 0);
   }
 
-  function getColorScale(maxValue) {
+  function getColorScale(maxValue, minValue = 0) {
     let colorScheme = _.find(ctrl.colorSchemes, {value: panel.color.colorScheme});
     let colorInterpolator = d3[colorScheme.value];
     let colorScaleInverted = colorScheme.invert === 'always' ||
       (colorScheme.invert === 'dark' && !contextSrv.user.lightTheme);
 
-    let start = colorScaleInverted ? maxValue : 0;
-    let end = colorScaleInverted ? 0 : maxValue;
+    let start = colorScaleInverted ? maxValue : minValue;
+    let end = colorScaleInverted ? minValue : maxValue;
 
     return d3.scaleSequential(colorInterpolator).domain([start, end]);
   }
@@ -683,77 +706,10 @@ export default function link(scope, elem, attrs, ctrl) {
     }
   }
 
-  function drawColorLegend() {
-    d3.select("#heatmap-color-legend").selectAll("rect").remove();
-
-    let legend = d3.select("#heatmap-color-legend");
-    let legendWidth = Math.floor($(d3.select("#heatmap-color-legend").node()).outerWidth());
-    let legendHeight = d3.select("#heatmap-color-legend").attr("height");
-
-    let legendColorScale = getColorScale(legendWidth);
-
-    let rangeStep = 2;
-    let valuesRange = d3.range(0, legendWidth, rangeStep);
-    var legendRects = legend.selectAll(".heatmap-color-legend-rect").data(valuesRange);
-
-    legendRects.enter().append("rect")
-    .attr("x", d => d)
-    .attr("y", 0)
-    .attr("width", rangeStep + 1) // Overlap rectangles to prevent gaps
-    .attr("height", legendHeight)
-    .attr("stroke-width", 0)
-    .attr("fill", d => {
-      return legendColorScale(d);
-    });
-  }
-
-  function drawOpacityLegend() {
-    d3.select("#heatmap-opacity-legend").selectAll("rect").remove();
-
-    let legend = d3.select("#heatmap-opacity-legend");
-    let legendWidth = Math.floor($(d3.select("#heatmap-opacity-legend").node()).outerWidth());
-    let legendHeight = d3.select("#heatmap-opacity-legend").attr("height");
-
-    let legendOpacityScale;
-    if (panel.color.colorScale === 'linear') {
-      legendOpacityScale = d3.scaleLinear()
-      .domain([0, legendWidth])
-      .range([0, 1]);
-    } else if (panel.color.colorScale === 'sqrt') {
-      legendOpacityScale = d3.scalePow().exponent(panel.color.exponent)
-      .domain([0, legendWidth])
-      .range([0, 1]);
-    }
-
-    let rangeStep = 1;
-    let valuesRange = d3.range(0, legendWidth, rangeStep);
-    var legendRects = legend.selectAll(".heatmap-opacity-legend-rect").data(valuesRange);
-
-    legendRects.enter().append("rect")
-    .attr("x", d => d)
-    .attr("y", 0)
-    .attr("width", rangeStep)
-    .attr("height", legendHeight)
-    .attr("stroke-width", 0)
-    .attr("fill", panel.color.cardColor)
-    .style("opacity", d => {
-      return legendOpacityScale(d);
-    });
-  }
-
   function render() {
     data = ctrl.data;
     panel = ctrl.panel;
     timeRange = ctrl.range;
-
-    // Draw only if color editor is opened
-    if (!d3.select("#heatmap-color-legend").empty()) {
-      drawColorLegend();
-    }
-
-    if (!d3.select("#heatmap-opacity-legend").empty()) {
-      drawOpacityLegend();
-    }
 
     if (!setElementHeight() || !data) {
       return;

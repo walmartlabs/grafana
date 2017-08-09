@@ -183,6 +183,7 @@ func (e MysqlExecutor) getTypedRowData(types []*sql.ColumnType, rows *core.Rows)
 	values := make([]interface{}, len(types))
 
 	for i, stype := range types {
+		e.log.Debug("type", "type", stype)
 		switch stype.DatabaseTypeName() {
 		case mysql.FieldTypeNameTiny:
 			values[i] = new(int8)
@@ -204,16 +205,32 @@ func (e MysqlExecutor) getTypedRowData(types []*sql.ColumnType, rows *core.Rows)
 			values[i] = new(float32)
 		case mysql.FieldTypeNameNewDecimal:
 			values[i] = new(float64)
+		case mysql.FieldTypeNameFloat:
+			values[i] = new(float64)
 		case mysql.FieldTypeNameTimestamp:
 			values[i] = new(time.Time)
 		case mysql.FieldTypeNameDateTime:
 			values[i] = new(time.Time)
 		case mysql.FieldTypeNameTime:
-			values[i] = new(time.Duration)
+			values[i] = new(string)
 		case mysql.FieldTypeNameYear:
 			values[i] = new(int16)
 		case mysql.FieldTypeNameNULL:
 			values[i] = nil
+		case mysql.FieldTypeNameBit:
+			values[i] = new([]byte)
+		case mysql.FieldTypeNameBLOB:
+			values[i] = new(string)
+		case mysql.FieldTypeNameTinyBLOB:
+			values[i] = new(string)
+		case mysql.FieldTypeNameMediumBLOB:
+			values[i] = new(string)
+		case mysql.FieldTypeNameLongBLOB:
+			values[i] = new(string)
+		case mysql.FieldTypeNameString:
+			values[i] = new(string)
+		case mysql.FieldTypeNameDate:
+			values[i] = new(string)
 		default:
 			return nil, fmt.Errorf("Database type %s not supported", stype.DatabaseTypeName())
 		}
@@ -306,6 +323,9 @@ func (s *stringStringScan) Update(rows *sql.Rows) error {
 	if err := rows.Scan(s.rowPtrs...); err != nil {
 		return err
 	}
+
+	s.time = null.FloatFromPtr(nil)
+	s.value = null.FloatFromPtr(nil)
 
 	for i := 0; i < s.columnCount; i++ {
 		if rb, ok := s.rowPtrs[i].(*sql.RawBytes); ok {

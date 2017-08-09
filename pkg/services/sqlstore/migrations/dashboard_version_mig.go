@@ -26,6 +26,13 @@ func addDashboardVersionMigration(mg *Migrator) {
 	mg.AddMigration("add index dashboard_version.dashboard_id", NewAddIndexMigration(dashboardVersionV1, dashboardVersionV1.Indices[0]))
 	mg.AddMigration("add unique index dashboard_version.dashboard_id and dashboard_version.version", NewAddIndexMigration(dashboardVersionV1, dashboardVersionV1.Indices[1]))
 
+	// before new dashboards where created with version 0, now they are always inserted with version 1
+	const setVersionTo1WhereZeroSQL = `UPDATE dashboard SET version = 1 WHERE version = 0`
+	mg.AddMigration("Set dashboard version to 1 where 0", new(RawSqlMigration).
+		Sqlite(setVersionTo1WhereZeroSQL).
+		Postgres(setVersionTo1WhereZeroSQL).
+		Mysql(setVersionTo1WhereZeroSQL))
+
 	const rawSQL = `INSERT INTO dashboard_version
 (
 	dashboard_id,
@@ -39,11 +46,11 @@ func addDashboardVersionMigration(mg *Migrator) {
 )
 SELECT
 	dashboard.id,
-	dashboard.version + 1,
+	dashboard.version,
 	dashboard.version,
 	dashboard.version,
 	dashboard.updated,
-	dashboard.updated_by,
+	COALESCE(dashboard.updated_by, -1),
 	'',
 	dashboard.data
 FROM dashboard;`
@@ -51,4 +58,10 @@ FROM dashboard;`
 		Sqlite(rawSQL).
 		Postgres(rawSQL).
 		Mysql(rawSQL))
+
+	// change column type of dashboard_version.data
+	mg.AddMigration("alter dashboard_version.data to mediumtext v1", new(RawSqlMigration).
+		Sqlite("SELECT 0 WHERE 0;").
+		Postgres("SELECT 0;").
+		Mysql("ALTER TABLE dashboard_version MODIFY data MEDIUMTEXT;"))
 }
