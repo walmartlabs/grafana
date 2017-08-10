@@ -7,30 +7,33 @@ import angular from 'angular';
 import moment from 'moment';
 
 import {DashboardModel} from '../model';
-import {HistoryListOpts, RevisionsModel} from './models';
+import {HistoryListOpts, RevisionsModel, CalculateDiffOptions, HistorySrv} from './history_srv';
 
 export class HistoryListCtrl {
   appending: boolean;
   dashboard: DashboardModel;
-  delta: { basic: string; html: string; };
+  delta: { basic: string; json: string; };
   diff: string;
   limit: number;
   loading: boolean;
   max: number;
   mode: string;
-  orderBy: string;
   revisions: RevisionsModel[];
-  selected: number[];
   start: number;
+  newInfo: RevisionsModel;
+  baseInfo: RevisionsModel;
+  canCompare: boolean;
+  isNewLatest: boolean;
 
   /** @ngInject */
   constructor(private $scope,
+              private $route,
               private $rootScope,
+              private $location,
               private $window,
+              private $timeout,
               private $q,
-              private contextSrv,
-              private historySrv) {
-    $scope.ctrl = this;
+              private historySrv: HistorySrv) {
 
     this.appending = false;
     this.diff = 'basic';
@@ -38,20 +41,26 @@ export class HistoryListCtrl {
     this.loading = false;
     this.max = 2;
     this.mode = 'list';
-    this.orderBy = 'version';
-    this.selected = [];
     this.start = 0;
+    this.canCompare = false;
 
+    this.$rootScope.onAppEvent('dashboard-saved', this.onDashboardSaved.bind(this), $scope);
     this.resetFromSource();
+  }
 
-    $scope.$watch('ctrl.mode', newVal => {
-      $window.scrollTo(0, 0);
-      if (newVal === 'list') {
-        this.reset();
-      }
-    });
+  onDashboardSaved() {
+    this.resetFromSource();
+  }
 
-    $rootScope.onAppEvent('dashboard-saved', this.onDashboardSaved.bind(this));
+  switchMode(mode: string) {
+    this.mode = mode;
+    if (this.mode === 'list') {
+      this.reset();
+    }
+  }
+
+  dismiss() {
+    this.$rootScope.appEvent('hide-dash-editor');
   }
 
   addToLog() {
@@ -59,26 +68,13 @@ export class HistoryListCtrl {
     this.getLog(true);
   }
 
-  compareRevisionStateChanged(revision: any) {
-    if (revision.checked) {
-      this.selected.push(revision.version);
-    } else {
-      _.remove(this.selected, version => version === revision.version);
-    }
-    this.selected = _.sortBy(this.selected);
-  }
-
-  compareRevisionDisabled(checked: boolean) {
-    return (this.selected.length === this.max && !checked) || this.revisions.length === 1;
+  revisionSelectionChanged() {
+    let selected = _.filter(this.revisions, {checked: true}).length;
+    this.canCompare = selected === 2;
   }
 
   formatDate(date) {
-    date = moment.isMoment(date) ? date : moment(date);
-    const format = 'YYYY-MM-DD HH:mm:ss';
-
-    return this.dashboard.timezone === 'browser' ?
-      moment(date).format(format) :
-      moment.utc(date).format(format);
+    return this.dashboard.formatDate(date);
   }
 
   formatBasicDate(date) {
@@ -88,30 +84,40 @@ export class HistoryListCtrl {
   }
 
   getDiff(diff: string) {
-    if (!this.isComparable()) { return; } // disable button but not tooltip
-
     this.diff = diff;
     this.mode = 'compare';
-    this.loading = true;
 
-    // instead of using lodash to find min/max we use the index
-    // due to the array being sorted in ascending order
-    const compare = {
-      new: this.selected[1],
-      original: this.selected[0],
+    // have it already been fetched?
+    if (this.delta[this.diff]) {
+      return this.$q.when(this.delta[this.diff]);
+    }
+
+    const selected = _.filter(this.revisions, {checked: true});
+
+    this.newInfo = selected[0];
+    this.baseInfo = selected[1];
+    this.isNewLatest = this.newInfo.version === this.dashboard.version;
+
+    this.loading = true;
+    const options: CalculateDiffOptions = {
+      new: {
+        dashboardId: this.dashboard.id,
+        version: this.newInfo.version,
+      },
+      base: {
+        dashboardId: this.dashboard.id,
+        version: this.baseInfo.version,
+      },
+      diffType: diff,
     };
 
-    if (this.delta[this.diff]) {
+    return this.historySrv.calculateDiff(options).then(response => {
+      this.delta[this.diff] = response;
+    }).catch(() => {
+      this.mode = 'list';
+    }).finally(() => {
       this.loading = false;
-      return this.$q.when(this.delta[this.diff]);
-    } else {
-      return this.historySrv.compareVersions(this.dashboard, compare, diff).then(response => {
-        this.delta[this.diff] = response;
-      }).catch(err => {
-        this.mode = 'list';
-        this.$rootScope.appEvent('alert-error', ['There was an error fetching the diff', (err.message || err)]);
-      }).finally(() => { this.loading = false; });
-    }
+    });
   }
 
   getLog(append = false) {
@@ -120,74 +126,38 @@ export class HistoryListCtrl {
     const options: HistoryListOpts = {
       limit: this.limit,
       start: this.start,
-      orderBy: this.orderBy,
     };
+
     return this.historySrv.getHistoryList(this.dashboard, options).then(revisions => {
-      const formattedRevisions =  _.flow(
-        _.partialRight(_.map, rev => _.extend({}, rev, {
-          checked: false,
-          message: (revision => {
-            if (revision.message === '') {
-              if (revision.version === 1) {
-                return 'Dashboard\'s initial save';
-              }
+      // set formated dates & default values
+      for (let rev of revisions) {
+        rev.createdDateString = this.formatDate(rev.created);
+        rev.ageString = this.formatBasicDate(rev.created);
+        rev.checked = false;
+      }
 
-              if (revision.restoredFrom > 0) {
-                return `Restored from version ${revision.restoredFrom}`;
-              }
+      this.revisions = append ? this.revisions.concat(revisions) : revisions;
 
-              if (revision.parentVersion === 0) {
-                return 'Dashboard overwritten';
-              }
-
-              return 'Dashboard saved';
-            }
-            return revision.message;
-          })(rev),
-        })))(revisions);
-
-      this.revisions = append ? this.revisions.concat(formattedRevisions) : formattedRevisions;
     }).catch(err => {
-      this.$rootScope.appEvent('alert-error', ['There was an error fetching the history list', (err.message || err)]);
+      this.loading = false;
     }).finally(() => {
       this.loading = false;
       this.appending = false;
     });
   }
 
-  getMeta(version: number, property: string) {
-    const revision = _.find(this.revisions, rev => rev.version === version);
-    return revision[property];
-  }
-
-  isOriginalCurrent() {
-    return this.selected[1] === this.dashboard.version;
-  }
-
-  isComparable() {
-    const isParamLength = this.selected.length === 2;
-    const areNumbers = this.selected.every(version => _.isNumber(version));
-    const areValidVersions = _.filter(this.revisions, revision => {
-      return revision.version === this.selected[0] || revision.version === this.selected[1];
-    }).length === 2;
-    return isParamLength && areNumbers && areValidVersions;
-  }
-
   isLastPage() {
     return _.find(this.revisions, rev => rev.version === 1);
   }
 
-  onDashboardSaved() {
-    this.$rootScope.appEvent('hide-dash-editor');
-  }
-
   reset() {
-    this.delta = { basic: '', html: '' };
+    this.delta = { basic: '', json: '' };
     this.diff = 'basic';
     this.mode = 'list';
     this.revisions = _.map(this.revisions, rev => _.extend({}, rev, { checked: false }));
-    this.selected = [];
+    this.canCompare = false;
     this.start = 0;
+    this.isNewLatest = false;
   }
 
   resetFromSource() {
@@ -200,7 +170,7 @@ export class HistoryListCtrl {
       title: 'Restore version',
       text: '',
       text2: `Are you sure you want to restore the dashboard to version ${version}? All unsaved changes will be lost.`,
-      icon: 'fa-rotate-right',
+      icon: 'fa-history',
       yesText: `Yes, restore to version ${version}`,
       onConfirm: this.restoreConfirm.bind(this, version),
     });
@@ -209,25 +179,13 @@ export class HistoryListCtrl {
   restoreConfirm(version: number) {
     this.loading = true;
     return this.historySrv.restoreDashboard(this.dashboard, version).then(response => {
-      this.revisions.unshift({
-        id: this.revisions[0].id + 1,
-        checked: false,
-        dashboardId: this.dashboard.id,
-        parentVersion: version,
-        version: this.revisions[0].version + 1,
-        created: new Date(),
-        createdBy: this.contextSrv.user.name,
-        message: `Restored from version ${version}`,
-      });
-
-      this.reset();
-      const restoredData = response.dashboard;
-      this.dashboard = restoredData.dashboard;
-      this.dashboard.meta = restoredData.meta;
-      this.$scope.setupDashboard(restoredData);
-    }).catch(err => {
-      this.$rootScope.appEvent('alert-error', ['There was an error restoring the dashboard', (err.message || err)]);
-    }).finally(() => { this.loading = false; });
+      this.$location.path('dashboard/db/' + response.slug);
+      this.$route.reload();
+      this.$rootScope.appEvent('alert-success', ['Dashboard restored', 'Restored from version ' + version]);
+    }).catch(() => {
+      this.mode = 'list';
+      this.loading = false;
+    });
   }
 }
 
