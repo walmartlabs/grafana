@@ -123,7 +123,7 @@ func scheduleMissingAlerts(cmd *ScheduleMissingAlertsCommand) error {
 	res := make([]*Rule, 0)
 	missingAlerts := cmd.MissingAlerts
 	for _, ruleDef := range missingAlerts {
-		if model, err := NewRuleFromDBAlert(ruleDef); err != nil {
+		if model, err := ModifiedRuleFromDBAlert(ruleDef); err != nil {
 			engine.log.Error("Could not build alert model for rule", "ruleId", ruleDef.Id, "error", err)
 		} else {
 			res = append(res, model)

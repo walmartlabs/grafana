@@ -33,7 +33,8 @@ func handleAlertTestCommand(cmd *AlertTestCommand) error {
 
 	for _, alert := range alerts {
 		if alert.PanelId == cmd.PanelId {
-			rule, err := NewRuleFromDBAlert(alert)
+			//rule, err := NewRuleFromDBAlert(alert)
+			rule, err := ModifiedRuleFromDBAlert(alert)
 			if err != nil {
 				return err
 			}

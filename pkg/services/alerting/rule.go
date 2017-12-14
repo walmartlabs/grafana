@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/grafana/grafana/pkg/components/simplejson"
+	"github.com/grafana/grafana/pkg/services/alerting/conditions"
 
 	m "github.com/grafana/grafana/pkg/models"
 )
@@ -140,4 +141,54 @@ var conditionFactories map[string]ConditionFactory = make(map[string]ConditionFa
 
 func RegisterCondition(typeName string, factory ConditionFactory) {
 	conditionFactories[typeName] = factory
+}
+
+func ModifiedRuleFromDBAlert(ruleDef *m.Alert) (*Rule, error) {
+	model := &Rule{}
+	model.Id = ruleDef.Id
+	model.OrgId = ruleDef.OrgId
+	model.DashboardId = ruleDef.DashboardId
+	model.PanelId = ruleDef.PanelId
+	model.Name = ruleDef.Name
+	model.Message = ruleDef.Message
+	model.Frequency = ruleDef.Frequency
+	model.State = ruleDef.State
+	model.NoDataState = m.NoDataOption(ruleDef.Settings.Get("noDataState").MustString("no_data"))
+	model.ExecutionErrorState = m.ExecutionErrorOption(ruleDef.Settings.Get("executionErrorState").MustString("alerting"))
+	model.EvalDate = ruleDef.EvalDate
+
+	for _, v := range ruleDef.Settings.Get("notifications").MustArray() {
+		jsonModel := simplejson.NewFromAny(v)
+		if id, err := jsonModel.Get("id").Int64(); err != nil {
+			return nil, ValidationError{Reason: "Invalid notification schema", DashboardId: model.DashboardId, Alertid: model.Id, PanelId: model.PanelId}
+		} else {
+			model.Notifications = append(model.Notifications, id)
+		}
+	}
+
+	for index, condition := range ruleDef.Settings.Get("conditions").MustArray() {
+		conditionModel := simplejson.NewFromAny(condition)
+		fmt.Printf("checking conditionModel----%v\n", conditionModel)
+		conditionType := conditionModel.Get("type").MustString()
+		if factory, exist := conditionFactories[conditionType]; !exist {
+			return nil, ValidationError{Reason: "Unknown alert condition: " + conditionType, DashboardId: model.DashboardId, Alertid: model.Id, PanelId: model.PanelId}
+		} else {
+			if queryCondition, err := factory(conditionModel, index); err != nil {
+				return nil, ValidationError{Err: err, DashboardId: model.DashboardId, Alertid: model.Id, PanelId: model.PanelId}
+			} else {
+				//How to get the internal of queryCondition so that we can change the conditions?
+				//queryCondition is of type 'QueryCondition'
+				fmt.Printf("%v, %T\n", queryCondition, queryCondition)
+				s, ok := queryCondition.(*conditions.QueryCondition)
+				fmt.Println(s, ok)
+				model.Conditions = append(model.Conditions, queryCondition)
+			}
+		}
+	}
+
+	if len(model.Conditions) == 0 {
+		return nil, fmt.Errorf("Alert is missing conditions")
+	}
+
+	return model, nil
 }
