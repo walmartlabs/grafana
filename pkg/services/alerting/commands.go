@@ -7,6 +7,7 @@ import (
 
 	"github.com/grafana/grafana/pkg/bus"
 	m "github.com/grafana/grafana/pkg/models"
+	s "github.com/grafana/grafana/pkg/setting"
 )
 
 type UpdateDashboardAlertsCommand struct {
@@ -123,15 +124,38 @@ func scheduleMissingAlerts(cmd *ScheduleMissingAlertsCommand) error {
 	res := make([]*Rule, 0)
 	missingAlerts := cmd.MissingAlerts
 	for _, ruleDef := range missingAlerts {
-		if model, err := ModifiedRuleFromDBAlert(ruleDef); err != nil {
-			engine.log.Error("Could not build alert model for rule", "ruleId", ruleDef.Id, "error", err)
-		} else {
-			res = append(res, model)
-			engine.execQueue <- &Job{Rule: model}
-			engine.log.Debug(fmt.Sprintf("Scheduled missed Rule : %v", model.Name))
+		frequency := ruleDef.Frequency
+		/*
+			If frequency is in multiples of 60 sec and less than 10 min = (600 seconds).
+			*Then we evaluate datapoints for all the values in past 10 minutes because we introduced a delay of
+			*10 minutes when getting the missing alerts.Check sqlstore/services/alert.go
+			*Note that we don't evaluate datapoint for alerts with frequency less than 60 seconds because
+			*the frequency is too frequent and won't make sense to excute missing alerts on low frequency.
+		*/
+		noOfIterations := int(s.DefaultMissingAlertsDelay / 60) //10 iterations
+		if frequency >= 60 || frequency <= s.DefaultMissingAlertsDelay {
+			factor := 1
+			for factor <= noOfIterations {
+				submitAlertToEngine(ruleDef, res, factor)
+				factor += factor
+			}
+		} else if frequency > s.DefaultMissingAlertsDelay { //For frequency greater than 10 minutes just go back to previous missed frequency
+			frequencyInMin := int(frequency / 60)
+			factor := 1 + frequencyInMin
+			submitAlertToEngine(ruleDef, res, factor)
 		}
 	}
 	cmd.Result = res
 	engine.log.Info(fmt.Sprintf("Total no of rules scheduled for execution of missed alerts is %v", len(missingAlerts)))
 	return nil
+}
+
+func submitAlertToEngine(ruleDef *m.Alert, res []*Rule, factor int) {
+	if model, err := ModifiedRuleFromDBAlert(ruleDef, factor); err != nil {
+		engine.log.Error("Could not build alert model for rule", "ruleId", ruleDef.Id, "error", err)
+	} else {
+		res = append(res, model)
+		engine.execQueue <- &Job{Rule: model}
+		engine.log.Debug(fmt.Sprintf("Scheduled missed Rule : %v", model.Name))
+	}
 }
