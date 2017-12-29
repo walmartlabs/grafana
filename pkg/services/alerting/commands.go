@@ -133,11 +133,12 @@ func scheduleMissingAlerts(cmd *ScheduleMissingAlertsCommand) error {
 			*the frequency is too frequent and won't make sense to excute missing alerts on low frequency.
 		*/
 		noOfIterations := int(s.DefaultMissingAlertsDelay / 60) //10 iterations
-		if frequency >= 60 || frequency <= s.DefaultMissingAlertsDelay {
+		engine.log.Debug(fmt.Sprintf("frequency : %v", frequency))
+		if frequency >= 60 && frequency <= s.DefaultMissingAlertsDelay {
 			factor := 1
 			for factor <= noOfIterations {
 				submitAlertToEngine(ruleDef, res, factor)
-				factor += factor
+				factor = factor + 1
 			}
 		} else if frequency > s.DefaultMissingAlertsDelay { //For frequency greater than 10 minutes just go back to previous missed frequency
 			frequencyInMin := int(frequency / 60)

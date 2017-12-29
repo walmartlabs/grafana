@@ -175,11 +175,8 @@ func ModifiedRuleFromDBAlert(ruleDef *m.Alert, factor int) (*Rule, error) {
 		queryMap := conditionModel.Get("query").MustMap()
 		params, _ := queryMap["params"]
 		paramsArray := params.([]interface{})
-		beginInterval := paramsArray[2].(string)
-		if beginInterval == "now" {
-			paramsArray[2] = beginInterval + factorStr
-		}
-		fmt.Println("ConditionModel ---%v", conditionModel)
+		paramsArray[2] = "now" + factorStr
+		engine.log.Debug(fmt.Sprintf("ConditionModel : %v", conditionModel))
 		if factory, exist := conditionFactories[conditionType]; !exist {
 			return nil, ValidationError{Reason: "Unknown alert condition: " + conditionType, DashboardId: model.DashboardId, Alertid: model.Id, PanelId: model.PanelId}
 		} else {
@@ -190,8 +187,10 @@ func ModifiedRuleFromDBAlert(ruleDef *m.Alert, factor int) (*Rule, error) {
 			}
 		}
 	}
+
 	if len(model.Conditions) == 0 {
 		return nil, fmt.Errorf("Alert is missing conditions")
 	}
+
 	return model, nil
 }
