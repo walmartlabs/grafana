@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/grafana/grafana/pkg/components/simplejson"
-
 	m "github.com/grafana/grafana/pkg/models"
 )
 
@@ -140,4 +139,58 @@ var conditionFactories map[string]ConditionFactory = make(map[string]ConditionFa
 
 func RegisterCondition(typeName string, factory ConditionFactory) {
 	conditionFactories[typeName] = factory
+}
+
+func ModifiedRuleFromDBAlert(ruleDef *m.Alert, factor int) (*Rule, error) {
+	model := &Rule{}
+	model.Id = ruleDef.Id
+	model.OrgId = ruleDef.OrgId
+	model.DashboardId = ruleDef.DashboardId
+	model.PanelId = ruleDef.PanelId
+	model.Name = ruleDef.Name
+	model.Message = ruleDef.Message
+	model.Frequency = ruleDef.Frequency
+	model.State = ruleDef.State
+	model.NoDataState = m.NoDataOption(ruleDef.Settings.Get("noDataState").MustString("no_data"))
+	model.ExecutionErrorState = m.ExecutionErrorOption(ruleDef.Settings.Get("executionErrorState").MustString("alerting"))
+	model.EvalDate = ruleDef.EvalDate
+
+	factorStr := strconv.Itoa(-factor) + "m"
+
+	for _, v := range ruleDef.Settings.Get("notifications").MustArray() {
+		jsonModel := simplejson.NewFromAny(v)
+		if id, err := jsonModel.Get("id").Int64(); err != nil {
+			return nil, ValidationError{Reason: "Invalid notification schema", DashboardId: model.DashboardId, Alertid: model.Id, PanelId: model.PanelId}
+		} else {
+			model.Notifications = append(model.Notifications, id)
+		}
+	}
+
+	for index, condition := range ruleDef.Settings.Get("conditions").MustArray() {
+		conditionModel := simplejson.NewFromAny(condition)
+		conditionType := conditionModel.Get("type").MustString()
+		/*
+		* Get the query params from conditionModel and modify the begin interval
+		 */
+		queryMap := conditionModel.Get("query").MustMap()
+		params, _ := queryMap["params"]
+		paramsArray := params.([]interface{})
+		paramsArray[2] = "now" + factorStr
+		engine.log.Debug(fmt.Sprintf("ConditionModel : %v", conditionModel))
+		if factory, exist := conditionFactories[conditionType]; !exist {
+			return nil, ValidationError{Reason: "Unknown alert condition: " + conditionType, DashboardId: model.DashboardId, Alertid: model.Id, PanelId: model.PanelId}
+		} else {
+			if queryCondition, err := factory(conditionModel, index); err != nil {
+				return nil, ValidationError{Err: err, DashboardId: model.DashboardId, Alertid: model.Id, PanelId: model.PanelId}
+			} else {
+				model.Conditions = append(model.Conditions, queryCondition)
+			}
+		}
+	}
+
+	if len(model.Conditions) == 0 {
+		return nil, fmt.Errorf("Alert is missing conditions")
+	}
+
+	return model, nil
 }

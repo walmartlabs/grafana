@@ -372,7 +372,6 @@ func GetMissingAlerts(query *m.GetMissingAlertsQuery) error {
 
 	var currentTime = time.Unix(ts, 0)
 	sqlog.Info("currentTime", "currentTime", currentTime)
-	//fmt.Println("currentTime", currentTime)
 	var expectedLastEvalTime time.Time
 	var elapsedTimeThreshold = currentTime.Add(-time.Duration(s.MaxAlertEvalTimeLimitInSeconds) * time.Second)
 
