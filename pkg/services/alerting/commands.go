@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/grafana/grafana/pkg/bus"
+	"github.com/grafana/grafana/pkg/log"
 	m "github.com/grafana/grafana/pkg/models"
 	s "github.com/grafana/grafana/pkg/setting"
 )
@@ -36,6 +37,8 @@ type ScheduleMissingAlertsCommand struct {
 	MissingAlerts []*m.Alert
 	Result        []*Rule
 }
+
+var schedulerCommandsLog = log.New("alerting.schedulerCommands")
 
 func init() {
 	bus.AddHandler("alerting", updateDashboardAlerts)
@@ -133,30 +136,31 @@ func scheduleMissingAlerts(cmd *ScheduleMissingAlertsCommand) error {
 			*the frequency is too frequent and won't make sense to excute missing alerts on low frequency.
 		*/
 		noOfIterations := int(s.DefaultMissingAlertsDelay / 60) //10 iterations
-		engine.log.Debug(fmt.Sprintf("frequency : %v", frequency))
+		schedulerCommandsLog.Debug(fmt.Sprintf("frequency : %v", frequency))
 		if frequency >= 60 && frequency <= s.DefaultMissingAlertsDelay {
 			factor := 1
 			for factor <= noOfIterations {
-				submitAlertToEngine(ruleDef, res, factor)
+				res = submitAlertToEngine(ruleDef, res, factor)
 				factor = factor + 1
 			}
 		} else if frequency > s.DefaultMissingAlertsDelay { //For frequency greater than 10 minutes just go back to previous missed frequency
 			frequencyInMin := int(frequency / 60)
 			factor := 1 + frequencyInMin
-			submitAlertToEngine(ruleDef, res, factor)
+			res = submitAlertToEngine(ruleDef, res, factor)
 		}
 	}
 	cmd.Result = res
-	engine.log.Info(fmt.Sprintf("Total no of rules scheduled for execution of missed alerts is %v", len(missingAlerts)))
+	schedulerCommandsLog.Info(fmt.Sprintf("Total no of rules scheduled for execution of missed alerts is %v", len(missingAlerts)))
 	return nil
 }
 
-func submitAlertToEngine(ruleDef *m.Alert, res []*Rule, factor int) {
+var submitAlertToEngine = func(ruleDef *m.Alert, res []*Rule, factor int) []*Rule {
 	if model, err := ModifiedRuleFromDBAlert(ruleDef, factor); err != nil {
-		engine.log.Error("Could not build alert model for rule", "ruleId", ruleDef.Id, "error", err)
+		schedulerCommandsLog.Error("Could not build alert model for rule", "ruleId", ruleDef.Id, "error", err)
 	} else {
 		res = append(res, model)
 		engine.execQueue <- &Job{Rule: model}
-		engine.log.Debug(fmt.Sprintf("Scheduled missed Rule : %v", model.Name))
+		schedulerCommandsLog.Debug(fmt.Sprintf("Scheduled missed Rule : %v", model.Name))
 	}
+	return res
 }

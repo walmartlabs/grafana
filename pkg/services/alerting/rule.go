@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/grafana/grafana/pkg/components/simplejson"
+	"github.com/grafana/grafana/pkg/log"
 	m "github.com/grafana/grafana/pkg/models"
 )
 
@@ -58,6 +59,7 @@ func (e ValidationError) Error() string {
 var (
 	ValueFormatRegex = regexp.MustCompile("^\\d+")
 	UnitFormatRegex  = regexp.MustCompile("\\w{1}$")
+	ruleLog          = log.New("alerting.rule")
 )
 
 var unitMultiplier = map[string]int{
@@ -176,7 +178,7 @@ func ModifiedRuleFromDBAlert(ruleDef *m.Alert, factor int) (*Rule, error) {
 		params, _ := queryMap["params"]
 		paramsArray := params.([]interface{})
 		paramsArray[2] = "now" + factorStr
-		engine.log.Debug(fmt.Sprintf("ConditionModel : %v", conditionModel))
+		ruleLog.Debug(fmt.Sprintf("ConditionModel : %v", conditionModel))
 		if factory, exist := conditionFactories[conditionType]; !exist {
 			return nil, ValidationError{Reason: "Unknown alert condition: " + conditionType, DashboardId: model.DashboardId, Alertid: model.Id, PanelId: model.PanelId}
 		} else {
