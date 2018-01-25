@@ -96,39 +96,59 @@ func (cm *ClusterManager) clusterMgrTicker(ctx context.Context) error {
 		}
 	}()
 	cm.log.Info("clusterMgrTicker started")
-	ticksCounter := 0
-	cleanupCheck := false
 	for {
 		select {
 		case <-ctx.Done():
 			cm.log.Info("clusterMgrTicker Done")
 			return ctx.Err()
-		case <-cm.ticker.C: // ticks every second
-			if ticksCounter%60 == 0 {
-				if cm.alertingState.run_type != m.CLN_ALERT_RUN_TYPE_CLEANUP {
-					if err := cm.clusterNodeMgmt.CheckIn(cm.alertingState, -1); err != nil {
-						cm.log.Error("Failed to checkin", "error", err.Error())
-					}
-				}
+		case x := <-cm.ticker.C: // ticks every second
+			//execute cleanup scheduler everyday at 12.00.00 AM
+			if isTimeForCleanup(x) {
+				cm.log.Debug("Time to run the cleanup scheduler")
+				cm.cleanupScheduler()
 			}
-			if ticksCounter%setting.ClusteringCleanupPeriod == 0 {
-				cleanupCheck = true
-			}
-			if ticksCounter%30 == 0 {
-				if cleanupCheck {
-					if cm.cleanupScheduler() {
-						cleanupCheck = false
-					}
-				}
+			if x.Second()%setting.ClusteringAlertExecutionFrequency == 0 {
 				if setting.AlertingEnabled && setting.ExecuteAlerts {
+					//checkin
+					cm.checkin()
+					//schedule alert execution
 					cm.alertsScheduler()
 				}
 			}
-			ticksCounter++
+			if x.Second() != 0 {
+				if cm.alertingState.status != m.CLN_ALERT_STATUS_READY && cm.isAlertExecutionCompleted() {
+					cm.changeAlertingStateAndRunType(m.CLN_ALERT_STATUS_READY, m.CLN_ALERT_RUN_TYPE_NORMAL)
+					cm.checkin()
+				}
+			}
 		case taskStatus := <-cm.dispatcherTaskStatus:
 			cm.handleDispatcherTaskStatus(taskStatus)
 		}
 	}
+}
+func isTimeForCleanup(time time.Time) bool {
+	currentHour := time.Hour()
+	interval := currentHour % setting.ClusteringCleanupPeriod
+	if interval == 0 && time.Minute() == 0 && time.Second() == 0 {
+		return true
+	}
+	return false
+}
+
+func (cm *ClusterManager) checkin() {
+	if err := cm.clusterNodeMgmt.CheckIn(cm.alertingState, -1); err != nil {
+		cm.log.Error("Failed to checkin", "error", err.Error())
+	}
+}
+
+//FIXME: Find a better way to check if all the jobs submitted to alert engine are executed.
+func (cm *ClusterManager) isAlertExecutionCompleted() bool {
+	isAlertExecutionComplete := true
+	if cm.alertingState.status == m.CLN_ALERT_STATUS_SCHEDULING ||
+		(cm.alertingState.status == m.CLN_ALERT_STATUS_PROCESSING && cm.hasPendingAlertJobs()) {
+		isAlertExecutionComplete = false
+	}
+	return isAlertExecutionComplete
 }
 
 func (cm *ClusterManager) handleDispatcherTaskStatus(taskStatus *DispatcherTaskStatus) {
@@ -168,15 +188,19 @@ func (cm *ClusterManager) cleanupScheduler() bool {
 		return true
 	}
 	ts := tscmd.Result
-	checkcmd := &m.ClusteringCleanupCheckCommand{LastHeartbeat: ts}
-	if err := bus.Dispatch(checkcmd); err != nil {
-		cm.log.Error("Cleanup check failed", "error", err)
-		return true
-	}
-	if !checkcmd.Result {
-		cm.log.Info("Cleanup check : cleanup is already done")
-		return true
-	}
+
+	/* Commenting below steps as they are not required */
+	//-------------------------------------------------//
+	// checkcmd := &m.ClusteringCleanupCheckCommand{LastHeartbeat: ts}
+	// if err := bus.Dispatch(checkcmd); err != nil {
+	// 	cm.log.Error("Cleanup check failed", "error", err)
+	// 	return true
+	// }
+	// if !checkcmd.Result {
+	// 	cm.log.Info("Cleanup check : cleanup is already done")
+	// 	return true
+	// }
+
 	cm.changeAlertingStateAndRunType(m.CLN_ALERT_STATUS_SCHEDULING, m.CLN_ALERT_RUN_TYPE_CLEANUP)
 	if err := cm.clusterNodeMgmt.CheckIn(cm.alertingState, 1); err != nil {
 		cm.log.Debug("Failed to checkin", "error", err.Error())
@@ -194,13 +218,6 @@ func (cm *ClusterManager) cleanupScheduler() bool {
 }
 
 func (cm *ClusterManager) alertsScheduler() {
-	if cm.alertingState.status == m.CLN_ALERT_STATUS_SCHEDULING ||
-		(cm.alertingState.status == m.CLN_ALERT_STATUS_PROCESSING && cm.hasPendingAlertJobs()) {
-		return
-	}
-	if cm.alertingState.status != m.CLN_ALERT_STATUS_READY {
-		cm.changeAlertingState(m.CLN_ALERT_STATUS_READY)
-	}
 	cm.scheduleNormalAlerts()
 }
 

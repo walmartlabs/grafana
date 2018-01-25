@@ -26,7 +26,6 @@ func init() {
 	bus.AddHandler("sql", GetActiveNodesCount)
 	bus.AddHandler("sql", GetNodeProcessingMissingAlerts)
 	bus.AddHandler("sql", ClusteringCleanup)
-	bus.AddHandler("sql", ClusteringCleanupCheck)
 }
 
 func GetActiveNodeByIdHeartbeat(query *m.GetActiveNodeByIdHeartbeatQuery) error {
@@ -230,23 +229,23 @@ func GetNodeProcessingMissingAlerts(cmd *m.GetNodeProcessingMissingAlertsCommand
 	return nil
 }
 
-func ClusteringCleanupCheck(cmd *m.ClusteringCleanupCheckCommand) error {
-	sqlog.Debug("ClusteringCleanupCheck called")
-	lasthb := cmd.LastHeartbeat
-	results, err1 := x.Query(lastCleanupCheckSQL, lasthb-int64(setting.ClusteringCleanupPeriod), lasthb)
-	if err1 != nil {
-		sqlog.Warn("Cleanup check failed", "error", err1)
-		cmd.Result = false
-		return err1
-	}
-	if len(results) > 0 {
-		sqlog.Debug("Cheanup is already done")
-		cmd.Result = false
-		return nil
-	}
-	cmd.Result = true
-	return nil
-}
+// func ClusteringCleanupCheck(cmd *m.ClusteringCleanupCheckCommand) error {
+// 	sqlog.Debug("ClusteringCleanupCheck called")
+// 	lasthb := cmd.LastHeartbeat
+// 	results, err1 := x.Query(lastCleanupCheckSQL, lasthb-int64(setting.ClusteringCleanupPeriod), lasthb)
+// 	if err1 != nil {
+// 		sqlog.Warn("Cleanup check failed", "error", err1)
+// 		cmd.Result = false
+// 		return err1
+// 	}
+// 	if len(results) > 0 {
+// 		sqlog.Debug("Cheanup is already done")
+// 		cmd.Result = false
+// 		return nil
+// 	}
+// 	cmd.Result = true
+// 	return nil
+// }
 
 func ClusteringCleanup(cmd *m.ClusteringCleanupCommand) error {
 	sqlog.Debug("ClusteringCleanup called")
