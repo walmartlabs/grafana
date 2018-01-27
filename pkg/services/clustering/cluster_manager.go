@@ -103,21 +103,20 @@ func (cm *ClusterManager) clusterMgrTicker(ctx context.Context) error {
 			return ctx.Err()
 		case x := <-cm.ticker.C: // ticks every second
 			//execute cleanup scheduler everyday at 12.00.00 AM
-			if isTimeForCleanup(x) {
-				cm.log.Debug("Time to run the cleanup scheduler")
+			if cm.isTimeForCleanup(x) {
+				cm.log.Debug("Time to run the cleanup scheduler on one node")
 				cm.cleanupScheduler()
+				cm.alertsScheduler()
 			}
-			if x.Second()%setting.ClusteringAlertExecutionFrequency == 0 {
-				if setting.AlertingEnabled && setting.ExecuteAlerts {
-					//checkin
-					cm.checkin()
-					//schedule alert execution
-					cm.alertsScheduler()
-				}
+			//schedule alert execution at the 0th second of every minute i.e every minute
+			if x.Second() == 0 && setting.AlertingEnabled && setting.ExecuteAlerts {
+				cm.alertsScheduler()
 			}
 			if x.Second() != 0 {
 				if cm.alertingState.status != m.CLN_ALERT_STATUS_READY && cm.isAlertExecutionCompleted() {
+					//Change status in memory
 					cm.changeAlertingStateAndRunType(m.CLN_ALERT_STATUS_READY, m.CLN_ALERT_RUN_TYPE_NORMAL)
+					//record status in db
 					cm.checkin()
 				}
 			}
@@ -126,7 +125,7 @@ func (cm *ClusterManager) clusterMgrTicker(ctx context.Context) error {
 		}
 	}
 }
-func isTimeForCleanup(time time.Time) bool {
+func (cm *ClusterManager) isTimeForCleanup(time time.Time) bool {
 	currentHour := time.Hour()
 	interval := currentHour % setting.ClusteringCleanupPeriod
 	if interval == 0 && time.Minute() == 0 && time.Second() == 0 {
@@ -156,7 +155,7 @@ func (cm *ClusterManager) handleDispatcherTaskStatus(taskStatus *DispatcherTaskS
 	case DISPATCHER_TASK_TYPE_ALERTS_PARTITION:
 		if taskStatus.success {
 			cm.changeAlertingState(m.CLN_ALERT_STATUS_PROCESSING)
-			cm.processMissingAlerts()
+			//cm.processMissingAlerts()
 		}
 	case DISPATCHER_TASK_TYPE_ALERTS_MISSING:
 		if taskStatus.success {
@@ -200,7 +199,6 @@ func (cm *ClusterManager) cleanupScheduler() bool {
 	// 	cm.log.Info("Cleanup check : cleanup is already done")
 	// 	return true
 	// }
-
 	cm.changeAlertingStateAndRunType(m.CLN_ALERT_STATUS_SCHEDULING, m.CLN_ALERT_RUN_TYPE_CLEANUP)
 	if err := cm.clusterNodeMgmt.CheckIn(cm.alertingState, 1); err != nil {
 		cm.log.Debug("Failed to checkin", "error", err.Error())
@@ -271,19 +269,23 @@ func (cm *ClusterManager) isAnyOtherNodeProcessingMissingAlerts() bool {
 
 func (cm *ClusterManager) scheduleNormalAlerts() {
 	cm.log.Info("Scheduling normal alerts")
+	if cm.alertingState.status != m.CLN_ALERT_STATUS_READY {
+		return
+	}
 	lastHeartbeat, err := cm.clusterNodeMgmt.GetLastHeartbeat()
 	if err != nil {
 		cm.log.Error("Failed to get last heartbeat", "error", err)
 		return
 	}
-	if lastHeartbeat <= cm.alertingState.lastProcessedInterval {
-		return
-	}
+	// if lastHeartbeat <= cm.alertingState.lastProcessedInterval {
+	// 	return
+	// }
 	activeNode, err := cm.clusterNodeMgmt.GetNode(lastHeartbeat)
 	if err != nil {
-		cm.log.Debug("Failed to get node for heartbeat "+strconv.FormatInt(lastHeartbeat, 10), "error", err)
+		cm.log.Warn("Failed to get node for heartbeat "+strconv.FormatInt(lastHeartbeat, 10), "error", err)
 		return
 	}
+	//This condition will never get executed as the status recorded is always ready. We might want to remove this...check?
 	if activeNode.AlertStatus != m.CLN_ALERT_STATUS_READY {
 		cm.log.Debug(fmt.Sprintf("This node %v is not scheduled to process interval %v (status=%v)",
 			activeNode.NodeId, lastHeartbeat, activeNode.AlertStatus))
@@ -312,7 +314,7 @@ func (cm *ClusterManager) scheduleNormalAlerts() {
 		},
 	}
 	cm.dispatcherTaskQ <- alertDispatchTask
-	cm.alertingState.lastProcessedInterval = lastHeartbeat
+	//cm.alertingState.lastProcessedInterval = lastHeartbeat
 }
 
 func (cm *ClusterManager) alertRulesDispatcher(ctx context.Context) error {
