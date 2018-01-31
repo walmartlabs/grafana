@@ -117,6 +117,7 @@ func (cm *ClusterManager) clusterMgrTicker(ctx context.Context) error {
 				}
 				//schedule alert execution at the 0th second of every minute i.e every minute
 				if x.Second() == 0 {
+					cm.log.Debug("Time to run the normal alerts scheduler")
 					cm.alertsScheduler()
 				}
 				if x.Second() != 0 {
@@ -270,6 +271,8 @@ func (cm *ClusterManager) scheduleMissingAlerts() {
 			taskInfo: &DispatcherTaskAlertsMissing{missingAlerts: missingAlerts},
 		}
 		cm.dispatcherTaskQ <- alertDispatchTask1
+	} else {
+		cm.changeAlertingStateAndRunType(m.CLN_ALERT_STATUS_READY, m.CLN_ALERT_RUN_TYPE_NORMAL)
 	}
 	//cm.alertingState.lastProcessedInterval = lastHeartbeat
 }
@@ -351,8 +354,8 @@ func (cm *ClusterManager) handleDispatcherTask(task *DispatcherTask) {
 			NodeCount: taskInfo.nodeCount,
 			PartId:    taskInfo.partId,
 		}
-		err = bus.Dispatch(scheduleCmd)
 		cm.log.Info("Dispatcher - submitted normal alerts batch")
+		err = bus.Dispatch(scheduleCmd)
 	case DISPATCHER_TASK_TYPE_ALERTS_MISSING:
 		taskInfo := task.taskInfo.(*DispatcherTaskAlertsMissing)
 		scheduleCmd := &alerting.ScheduleMissingAlertsCommand{
