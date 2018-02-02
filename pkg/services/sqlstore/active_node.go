@@ -20,6 +20,7 @@ var (
 
 func init() {
 	bus.AddHandler("sql", GetActiveNodeByIdHeartbeat)
+	bus.AddHandler("sql", GeNode)
 	bus.AddHandler("sql", InsertActiveNodeHeartbeat)
 	bus.AddHandler("sql", InsertNodeProcessingMissingAlert)
 	bus.AddHandler("sql", GetLastDBTimeInterval)
@@ -42,6 +43,24 @@ func GetActiveNodeByIdHeartbeat(query *m.GetActiveNodeByIdHeartbeatQuery) error 
 		return err
 	}
 	query.Result = &retNode
+	return nil
+}
+
+func GeNode(cmd *m.GetNodeCmd) error {
+	var retNode m.ActiveNode
+	node := cmd.Node
+	has, err := x.Where("heartbeat=?", node.Heartbeat).And("node_id=?", node.NodeId).And("alert_status=?", node.AlertStatus).And("alert_run_type=?", node.AlertRunType).Get(&retNode)
+	if err != nil || !has {
+		errmsg := fmt.Sprintf("Heartbeat record not found: nodeId=%s, heartbeat=%d, status=%s, runType=%s", node.NodeId, node.Heartbeat, node.AlertStatus, node.AlertRunType)
+		if err == nil {
+			err = errors.New(errmsg)
+			sqlog.Debug(errmsg)
+		} else {
+			sqlog.Error(errmsg, "error", err)
+		}
+		return err
+	}
+	cmd.Result = &retNode
 	return nil
 }
 

@@ -13,7 +13,7 @@ import (
 type ClusterNodeMgmt interface {
 	GetNodeId() (string, error)
 	CheckIn(alertingState *AlertingState, participantLimit int) error
-	GetNode(heartbeat int64) (*m.ActiveNode, error)
+	GetNode(node *m.ActiveNode) (*m.ActiveNode, error)
 	CheckInNodeProcessingMissingAlerts(alertingState *AlertingState) error
 	GetActiveNodesCount(heartbeat int64) (int, error)
 	GetLastHeartbeat() (int64, error)
@@ -81,17 +81,17 @@ func (node *ClusterNode) CheckIn(alertingState *AlertingState, participantLimit 
 	return nil
 }
 
-func (node *ClusterNode) GetNode(heartbeat int64) (*m.ActiveNode, error) {
+func (node *ClusterNode) GetNode(currentNode *m.ActiveNode) (*m.ActiveNode, error) {
 	if node == nil {
 		return nil, errors.New("Cluster node object is nil")
 	}
-	cmd := &m.GetActiveNodeByIdHeartbeatQuery{
-		NodeId:    node.nodeId,
-		Heartbeat: heartbeat,
+	currentNode.NodeId = node.nodeId
+	cmd := &m.GetNodeCmd{
+		Node: currentNode,
 	}
-	node.log.Debug("Sending command ", "GetActiveNodeByIdHeartbeatQuery", cmd)
+	node.log.Debug("Sending command ", "GetNodeCmd", cmd)
 	if err := bus.Dispatch(cmd); err != nil {
-		node.log.Debug(fmt.Sprintf("Failed to get node %v", cmd), "error", err)
+		node.log.Debug(fmt.Sprintf("Failed to get node %v", cmd.Node), "error", err)
 		return nil, err
 	}
 	node.log.Debug("Command executed successfully")
