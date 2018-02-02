@@ -206,17 +206,6 @@ func (cm *ClusterManager) cleanupScheduler() bool {
 		cm.log.Error("Failed to get last heartbeat", "error", err)
 		return true
 	}
-	/* Commenting below steps as they are not required */
-	//-------------------------------------------------//
-	// checkcmd := &m.ClusteringCleanupCheckCommand{LastHeartbeat: ts}
-	// if err := bus.Dispatch(checkcmd); err != nil {
-	// 	cm.log.Error("Cleanup check failed", "error", err)
-	// 	return true
-	// }
-	// if !checkcmd.Result {
-	// 	cm.log.Info("Cleanup check : cleanup is already done")
-	// 	return true
-	// }
 	cm.changeAlertingStateAndRunType(m.CLN_ALERT_STATUS_SCHEDULING, m.CLN_ALERT_RUN_TYPE_CLEANUP)
 	if err := cm.clusterNodeMgmt.CheckIn(cm.alertingState, 1); err != nil {
 		cm.log.Debug("Failed to checkin", "error", err.Error())
@@ -269,7 +258,6 @@ func (cm *ClusterManager) scheduleMissingAlerts() {
 	} else {
 		cm.changeAlertingStateAndRunType(m.CLN_ALERT_STATUS_READY, m.CLN_ALERT_RUN_TYPE_NORMAL)
 	}
-	//cm.alertingState.lastProcessedInterval = lastHeartbeat
 }
 
 func (cm *ClusterManager) scheduleNormalAlerts() {
@@ -282,9 +270,6 @@ func (cm *ClusterManager) scheduleNormalAlerts() {
 		cm.log.Error("Failed to get last heartbeat", "error", err)
 		return
 	}
-	// if lastHeartbeat <= cm.alertingState.lastProcessedInterval {
-	// 	return
-	// }
 	node := &m.ActiveNode{
 		Heartbeat:    lastHeartbeat,
 		AlertStatus:  cm.alertingState.status,
@@ -319,7 +304,6 @@ func (cm *ClusterManager) scheduleNormalAlerts() {
 		},
 	}
 	cm.dispatcherTaskQ <- alertDispatchTask
-	//cm.alertingState.lastProcessedInterval = lastHeartbeat
 }
 
 func (cm *ClusterManager) alertRulesDispatcher(ctx context.Context) error {
