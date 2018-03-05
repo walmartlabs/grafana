@@ -20,13 +20,13 @@ var (
 
 func init() {
 	bus.AddHandler("sql", GetActiveNodeByIdHeartbeat)
+	bus.AddHandler("sql", GeNode)
 	bus.AddHandler("sql", InsertActiveNodeHeartbeat)
 	bus.AddHandler("sql", InsertNodeProcessingMissingAlert)
 	bus.AddHandler("sql", GetLastDBTimeInterval)
 	bus.AddHandler("sql", GetActiveNodesCount)
 	bus.AddHandler("sql", GetNodeProcessingMissingAlerts)
 	bus.AddHandler("sql", ClusteringCleanup)
-	bus.AddHandler("sql", ClusteringCleanupCheck)
 }
 
 func GetActiveNodeByIdHeartbeat(query *m.GetActiveNodeByIdHeartbeatQuery) error {
@@ -43,6 +43,24 @@ func GetActiveNodeByIdHeartbeat(query *m.GetActiveNodeByIdHeartbeatQuery) error 
 		return err
 	}
 	query.Result = &retNode
+	return nil
+}
+
+func GeNode(cmd *m.GetNodeCmd) error {
+	var retNode m.ActiveNode
+	node := cmd.Node
+	has, err := x.Where("heartbeat=?", node.Heartbeat).And("node_id=?", node.NodeId).And("alert_status=?", node.AlertStatus).And("alert_run_type=?", node.AlertRunType).Get(&retNode)
+	if err != nil || !has {
+		errmsg := fmt.Sprintf("Heartbeat record not found: nodeId=%s, heartbeat=%d, status=%s, runType=%s", node.NodeId, node.Heartbeat, node.AlertStatus, node.AlertRunType)
+		if err == nil {
+			err = errors.New(errmsg)
+			sqlog.Debug(errmsg)
+		} else {
+			sqlog.Error(errmsg, "error", err)
+		}
+		return err
+	}
+	cmd.Result = &retNode
 	return nil
 }
 
@@ -230,23 +248,23 @@ func GetNodeProcessingMissingAlerts(cmd *m.GetNodeProcessingMissingAlertsCommand
 	return nil
 }
 
-func ClusteringCleanupCheck(cmd *m.ClusteringCleanupCheckCommand) error {
-	sqlog.Debug("ClusteringCleanupCheck called")
-	lasthb := cmd.LastHeartbeat
-	results, err1 := x.Query(lastCleanupCheckSQL, lasthb-int64(setting.ClusteringCleanupPeriod), lasthb)
-	if err1 != nil {
-		sqlog.Warn("Cleanup check failed", "error", err1)
-		cmd.Result = false
-		return err1
-	}
-	if len(results) > 0 {
-		sqlog.Debug("Cheanup is already done")
-		cmd.Result = false
-		return nil
-	}
-	cmd.Result = true
-	return nil
-}
+// func ClusteringCleanupCheck(cmd *m.ClusteringCleanupCheckCommand) error {
+// 	sqlog.Debug("ClusteringCleanupCheck called")
+// 	lasthb := cmd.LastHeartbeat
+// 	results, err1 := x.Query(lastCleanupCheckSQL, lasthb-int64(setting.ClusteringCleanupPeriod), lasthb)
+// 	if err1 != nil {
+// 		sqlog.Warn("Cleanup check failed", "error", err1)
+// 		cmd.Result = false
+// 		return err1
+// 	}
+// 	if len(results) > 0 {
+// 		sqlog.Debug("Cheanup is already done")
+// 		cmd.Result = false
+// 		return nil
+// 	}
+// 	cmd.Result = true
+// 	return nil
+// }
 
 func ClusteringCleanup(cmd *m.ClusteringCleanupCommand) error {
 	sqlog.Debug("ClusteringCleanup called")
