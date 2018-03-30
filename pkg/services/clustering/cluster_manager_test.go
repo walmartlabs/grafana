@@ -1,7 +1,10 @@
 package clustering
 
 import (
+	"errors"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/grafana/grafana/pkg/bus"
 	m "github.com/grafana/grafana/pkg/models"
@@ -11,7 +14,7 @@ import (
 )
 
 func TestClusterManager(t *testing.T) {
-	Convey("Validate cluster manager", t, func() {
+	Convey("Validate cluster manager for normal alert processing", t, func() {
 		setting.NewConfigContext(&setting.CommandLineArgs{
 			HomePath: "../../../",
 		})
@@ -21,7 +24,6 @@ func TestClusterManager(t *testing.T) {
 
 		handlers := &mockHandlers{}
 		bus.AddHandler("test", handlers.getPendingJobCount)
-		bus.AddHandler("test", handlers.getMissingAlertsQuery)
 		bus.AddHandler("test", handlers.scheduleAlertsForPartitionCommand)
 
 		cm := NewClusterManager()
@@ -43,148 +45,240 @@ func TestClusterManager(t *testing.T) {
 			cm.scheduleNormalAlerts()
 			So(cm.alertingState.status, ShouldEqual, m.CLN_ALERT_STATUS_SCHEDULING)
 
-			// normal processing; next interval to process
-			// cm.alertingState.status = m.CLN_ALERT_STATUS_READY
-			// cm.alertingState.lastProcessedInterval = 1493233440
-			// handlers.pendingJobCount = 0
-			// mockCNM = &mockClusterNodeMgmt{
-			// 	nodeId:          "testnode:3000",
-			// 	activeNodeCount: 1,
-			// 	lastHeartbeat:   1493233500,
-			// 	activeNode:      &m.ActiveNode{PartId: 0, AlertStatus: m.CLN_ALERT_STATUS_READY},
-			// }
-			// cm.clusterNodeMgmt = mockCNM
-			// cm.scheduleNormalAlerts()
-			// fmt.Println("status " + cm.alertingState.status)
-			// So(cm.alertingState.status, ShouldEqual, m.CLN_ALERT_STATUS_SCHEDULING)
-			// So(mockCNM.callCountGetLastHeartbeat, ShouldEqual, 1)
-			// So(mockCNM.callCountGetActiveNodesCount, ShouldEqual, 1)
-			// So(mockCNM.callCountGetNode, ShouldEqual, 1)
-			// So(len(cm.dispatcherTaskQ), ShouldEqual, 1)
+			// normal processing; next interval to process; dispatch successful
+			cm.alertingState.status = m.CLN_ALERT_STATUS_READY
+			handlers.pendingJobCount = 0
+			mockCNM := &mockClusterNodeMgmt{
+				nodeId:          "testnode:3000",
+				activeNodeCount: 1,
+				lastHeartbeat:   1493233500,
+				activeNode:      &m.ActiveNode{PartId: 0, AlertStatus: m.CLN_ALERT_STATUS_READY},
+			}
+			cm.clusterNodeMgmt = mockCNM
+			cm.scheduleNormalAlerts()
+			fmt.Println("status " + cm.alertingState.status)
+			So(cm.alertingState.status, ShouldEqual, m.CLN_ALERT_STATUS_SCHEDULING)
+			So(mockCNM.callCountGetLastHeartbeat, ShouldEqual, 1)
+			So(mockCNM.callCountGetNode, ShouldEqual, 1)
+			So(mockCNM.callCountGetActiveNodesCount, ShouldEqual, 1)
+			So(cm.alertingState.status, ShouldEqual, m.CLN_ALERT_STATUS_SCHEDULING)
+			So(len(cm.dispatcherTaskQ), ShouldEqual, 1)
 
 			// dispatch successful
-			// handlers.scheduleAlertsForPartitionErr = nil
-			// task := <-cm.dispatcherTaskQ
-			// cm.handleDispatcherTask(task)
-			// So(len(cm.dispatcherTaskStatus), ShouldEqual, 1)
-			// status := <-cm.dispatcherTaskStatus
-			// So(status.success, ShouldBeTrue)
-			// So(status.taskType, ShouldEqual, DISPATCHER_TASK_TYPE_ALERTS_PARTITION)
-			// cm.handleDispatcherTaskStatus(status)
-			// So(cm.alertingState.status, ShouldEqual, m.CLN_ALERT_STATUS_PROCESSING)
+			handlers.scheduleAlertsForPartitionErr = nil
+			task := <-cm.dispatcherTaskQ
+			cm.handleDispatcherTask(task)
+			So(len(cm.dispatcherTaskStatus), ShouldEqual, 1)
+			status := <-cm.dispatcherTaskStatus
+			So(status.success, ShouldBeTrue)
+			So(status.taskType, ShouldEqual, DISPATCHER_TASK_TYPE_ALERTS_PARTITION)
+			cm.handleDispatcherTaskStatus(status)
+			So(cm.alertingState.status, ShouldEqual, m.CLN_ALERT_STATUS_PROCESSING)
 
-			// 			//normal processing; next interval to process; dispatch failed
-			// 			cm.alertingState.status = m.CLN_ALERT_STATUS_READY
-			// 			cm.alertingState.lastProcessedInterval = 1493233440
-			// 			handlers.pendingJobCount = 0
-			// 			mockCNM = &mockClusterNodeMgmt{
-			// 				nodeId:          "testnode:3000",
-			// 				activeNodeCount: 1,
-			// 				lastHeartbeat:   1493233500,
-			// 				activeNode:      &m.ActiveNode{PartId: 0, AlertStatus: m.CLN_ALERT_STATUS_READY},
-			// 			}
-			// 			cm.clusterNodeMgmt = mockCNM
-			// 			cm.scheduleNormalAlerts()
-			// 			So(cm.alertingState.status, ShouldEqual, m.CLN_ALERT_STATUS_SCHEDULING)
-			// 			So(mockCNM.callCountGetLastHeartbeat, ShouldEqual, 1)
-			// 			So(mockCNM.callCountGetActiveNodesCount, ShouldEqual, 1)
-			// 			So(mockCNM.callCountGetNode, ShouldEqual, 1)
-			// 			So(len(cm.dispatcherTaskQ), ShouldEqual, 1)
-			// 			// dispatch failed
-			// 			handlers.scheduleAlertsForPartitionErr = errors.New("some error")
-			// 			task = <-cm.dispatcherTaskQ
-			// 			cm.handleDispatcherTask(task)
-			// 			So(len(cm.dispatcherTaskStatus), ShouldEqual, 1)
-			// 			status = <-cm.dispatcherTaskStatus
-			// 			So(status.success, ShouldBeFalse)
-			// 			So(status.taskType, ShouldEqual, DISPATCHER_TASK_TYPE_ALERTS_PARTITION)
-			// 			cm.handleDispatcherTaskStatus(status)
-			// 			So(cm.alertingState.status, ShouldEqual, m.CLN_ALERT_STATUS_READY)
+			//normal processing: next interval to process; dispatch failed
+			cm.alertingState.status = m.CLN_ALERT_STATUS_READY
+			cm.alertingState.lastProcessedInterval = 1493233440
+			handlers.pendingJobCount = 0
+			mockCNM = &mockClusterNodeMgmt{
+				nodeId:          "testnode:3000",
+				activeNodeCount: 1,
+				lastHeartbeat:   1493233500,
+				activeNode:      &m.ActiveNode{PartId: 0, AlertStatus: m.CLN_ALERT_STATUS_READY},
+			}
+			cm.clusterNodeMgmt = mockCNM
+			cm.scheduleNormalAlerts()
+			So(cm.alertingState.status, ShouldEqual, m.CLN_ALERT_STATUS_SCHEDULING)
+			So(mockCNM.callCountGetLastHeartbeat, ShouldEqual, 1)
+			So(mockCNM.callCountGetActiveNodesCount, ShouldEqual, 1)
+			So(mockCNM.callCountGetNode, ShouldEqual, 1)
+			So(len(cm.dispatcherTaskQ), ShouldEqual, 1)
+
+			// dispatch failed
+			handlers.scheduleAlertsForPartitionErr = errors.New("some error")
+			task = <-cm.dispatcherTaskQ
+			cm.handleDispatcherTask(task)
+			So(len(cm.dispatcherTaskStatus), ShouldEqual, 1)
+			status = <-cm.dispatcherTaskStatus
+			So(status.success, ShouldBeFalse)
+			So(status.taskType, ShouldEqual, DISPATCHER_TASK_TYPE_ALERTS_PARTITION)
+			cm.handleDispatcherTaskStatus(status)
+			So(cm.alertingState.status, ShouldEqual, m.CLN_ALERT_STATUS_READY)
 		})
 	})
 }
 
-// func TestClusterManagerForMissingAlerts(t *testing.T) {
-// 	Convey("Validate cluster manager", t, func() {
-// 		setting.NewConfigContext(&setting.CommandLineArgs{
-// 			HomePath: "../../../",
-// 		})
-// 		setting.AlertingEnabled = true
-// 		setting.ExecuteAlerts = true
-// 		setting.ClusteringEnabled = true
+func TestClusterManagerForMissingAlerts(t *testing.T) {
+	Convey("Validate cluster manager for missing alert processing", t, func() {
+		setting.NewConfigContext(&setting.CommandLineArgs{
+			HomePath: "../../../",
+		})
+		setting.AlertingEnabled = true
+		setting.ExecuteAlerts = true
+		setting.ClusteringEnabled = true
 
-// 		handlers := &mockHandlers{}
-// 		bus.AddHandler("test", handlers.getPendingJobCount)
-// 		bus.AddHandler("test", handlers.getMissingAlertsQuery)
-// 		bus.AddHandler("test", handlers.scheduleAlertsForPartitionCommand)
-// 		bus.AddHandler("test", handlers.ScheduleMissingAlertsCommand)
+		handlers := &mockHandlers{}
+		//bus.AddHandler("test", handlers.SaveNodeProcessingMissingAlertCommand)
+		bus.AddHandler("test", handlers.getMissingAlertsQuery)
+		bus.AddHandler("test", handlers.ScheduleMissingAlertsCommand)
 
-// 		cm := NewClusterManager()
+		cm := NewClusterManager()
 
-// 		Convey("Test Missing alerts scheduling", func() {
-// 			handlers.reset()
-// 			cm.clusterNodeMgmt = &mockClusterNodeMgmt{}
+		Convey("Test Missing alerts scheduler successful", func() {
+			handlers.reset()
+			//Missing Alert Processing flow
+			alert1 := &m.Alert{
+				Name:     "alert1",
+				EvalDate: time.Now(),
+			}
+			missedAlerts := []*m.Alert{alert1}
+			mockCNM := &mockClusterNodeMgmt{
+				nodeId:          "testnode:3000",
+				activeNodeCount: 1,
+				lastHeartbeat:   1493233440,
+				activeNode:      &m.ActiveNode{PartId: 0, AlertStatus: m.CLN_ALERT_STATUS_READY},
+				missingAlerts:   missedAlerts,
+			}
+			cm.alertingState.status = m.CLN_ALERT_STATUS_READY
+			cm.clusterNodeMgmt = mockCNM
+			//Schedule Missing ALerts
+			cm.scheduleMissingAlerts()
+			So(cm.alertingState.status, ShouldEqual, m.CLN_ALERT_STATUS_SCHEDULING)
+			So(cm.alertingState.run_type, ShouldEqual, m.CLN_ALERT_RUN_TYPE_MISSING)
+			So(mockCNM.callCountCheckInNodeProcessingMissingAlerts, ShouldEqual, 1)
+			So(mockCNM.callCountGetNodeId, ShouldEqual, 1)
+			So(mockCNM.callCountGetMissingAlerts, ShouldEqual, 1)
+			// missing alerts dispatch successful
+			handlers.scheduleMissingAlertsErr = nil
+			missingAlertTask := <-cm.dispatcherTaskQ
+			cm.handleDispatcherTask(missingAlertTask)
+			missingAlertTaskStatus := <-cm.dispatcherTaskStatus
+			So(missingAlertTaskStatus.success, ShouldBeTrue)
+			So(missingAlertTaskStatus.taskType, ShouldEqual, DISPATCHER_TASK_TYPE_ALERTS_MISSING)
+			cm.handleDispatcherTaskStatus(missingAlertTaskStatus)
+			//normal alerts should be scheduled after missing alerts
+			So(cm.alertingState.status, ShouldEqual, m.CLN_ALERT_STATUS_SCHEDULING)
+			So(cm.alertingState.run_type, ShouldEqual, m.CLN_ALERT_RUN_TYPE_NORMAL)
+			//normal alerts dispatch successful
+			handlers.scheduleAlertsForPartitionErr = nil
+			normalTask := <-cm.dispatcherTaskQ
+			cm.handleDispatcherTask(normalTask)
+			So(len(cm.dispatcherTaskStatus), ShouldEqual, 1)
+			status := <-cm.dispatcherTaskStatus
+			cm.handleDispatcherTaskStatus(status)
+		})
 
-// 			//Missing Alert Processing flow
-// 			mockCNM := &mockClusterNodeMgmt{
-// 				nodeId:          "testnode:3000",
-// 				activeNodeCount: 1,
-// 				lastHeartbeat:   1493233440,
-// 				activeNode:      &m.ActiveNode{},
-// 			}
+		Convey("Test Missing alerts are not scheduled as node is not in ready state", func() {
+			handlers.reset()
+			cm.alertingState.status = m.CLN_ALERT_STATUS_PROCESSING
+			nodeNotInReadyState := cm.scheduleMissingAlerts()
+			So(nodeNotInReadyState, ShouldBeTrue)
+		})
 
-// 			cm.alertingState.status = m.CLN_ALERT_STATUS_READY
-// 			cm.alertingState.lastProcessedInterval = 1493233440
-// 			handlers.pendingJobCount = 0
-// 			alert1 := &m.Alert{
-// 				Name:     "alert1",
-// 				EvalDate: time.Now(),
-// 			}
-// 			missedAlerts := []*m.Alert{alert1}
-// 			mockCNM = &mockClusterNodeMgmt{
-// 				nodeId:          "testnode:3000",
-// 				activeNodeCount: 1,
-// 				lastHeartbeat:   1493233500,
-// 				activeNode:      &m.ActiveNode{PartId: 0, AlertStatus: m.CLN_ALERT_STATUS_READY},
-// 				missingAlerts:   missedAlerts,
-// 			}
-// 			cm.clusterNodeMgmt = mockCNM
-// 			cm.scheduleMissingAlerts()
-// 			// normal alerts dispatch successful
-// 			handlers.scheduleAlertsForPartitionErr = nil
-// 			normalTask := <-cm.dispatcherTaskQ
-// 			cm.handleDispatcherTask(normalTask)
-// 			So(len(cm.dispatcherTaskStatus), ShouldEqual, 1)
-// 			status := <-cm.dispatcherTaskStatus
-// 			cm.handleDispatcherTaskStatus(status)
+		Convey("Test Missing alerts are not scheduled as other node is processing missing alerts", func() {
+			handlers.reset()
+			mockCNM := &mockClusterNodeMgmt{
+				nodeId: "testnode:3000",
+			}
+			mockCNM.retError = errors.New("Other node is picked to process missing alerts")
+			cm.clusterNodeMgmt = mockCNM
+			cm.alertingState.status = m.CLN_ALERT_STATUS_READY
+			otherNodeProcessingMissingAlerts := cm.scheduleMissingAlerts()
+			So(mockCNM.callCountCheckInNodeProcessingMissingAlerts, ShouldEqual, 1)
+			So(cm.alertingState.status, ShouldEqual, m.CLN_ALERT_STATUS_READY)
+			So(cm.alertingState.run_type, ShouldEqual, m.CLN_ALERT_RUN_TYPE_NORMAL)
+			So(otherNodeProcessingMissingAlerts, ShouldBeTrue)
+		})
 
-// 			//process missing alerts
-// 			So(mockCNM.callCountGetMissingAlerts, ShouldEqual, 1)
-// 			So(mockCNM.callCountGetNodeProcessingMissingAlerts, ShouldEqual, 1)
-// 			So(mockCNM.callCountGetLastHeartbeat, ShouldEqual, 2)
-// 			So(mockCNM.callCountGetNode, ShouldEqual, 2)
-// 			So(cm.alertingState.status, ShouldEqual, m.CLN_ALERT_STATUS_SCHEDULING)
-// 			So(cm.alertingState.run_type, ShouldEqual, m.CLN_ALERT_RUN_TYPE_MISSING)
-// 			So(mockCNM.callCountCheckInNodeProcessingMissingAlerts, ShouldEqual, 1)
+		Convey("Test Missing alerts are not dispatched as 0 Missing alerts found", func() {
+			handlers.reset()
+			mockCNM := &mockClusterNodeMgmt{
+				nodeId: "testnode:3000",
+			}
+			cm.clusterNodeMgmt = mockCNM
+			cm.alertingState.status = m.CLN_ALERT_STATUS_READY
+			missingAlertsNotfound := cm.scheduleMissingAlerts()
+			So(mockCNM.callCountCheckInNodeProcessingMissingAlerts, ShouldEqual, 1)
+			So(mockCNM.callCountGetNodeId, ShouldEqual, 1)
+			So(mockCNM.callCountGetMissingAlerts, ShouldEqual, 1)
+			So(cm.alertingState.status, ShouldEqual, m.CLN_ALERT_STATUS_READY)
+			So(cm.alertingState.run_type, ShouldEqual, m.CLN_ALERT_RUN_TYPE_NORMAL)
+			So(missingAlertsNotfound, ShouldBeTrue)
+		})
+	})
+}
 
-// 			// missing alerts dispatch successful
-// 			handlers.scheduleMissingAlertsErr = nil
-// 			missingAlertTask := <-cm.dispatcherTaskQ
-// 			cm.handleDispatcherTask(missingAlertTask)
-// 			missingAlertTaskStatus := <-cm.dispatcherTaskStatus
-// 			So(missingAlertTaskStatus.success, ShouldBeTrue)
-// 			So(missingAlertTaskStatus.taskType, ShouldEqual, DISPATCHER_TASK_TYPE_ALERTS_MISSING)
-// 			cm.handleDispatcherTaskStatus(missingAlertTaskStatus)
-// 			So(cm.alertingState.status, ShouldEqual, m.CLN_ALERT_STATUS_PROCESSING)
-// 		})
-// 	})
-// }
+func TestClusterManagerForCleanupScheduler(t *testing.T) {
+	Convey("Validate cluster manager for Cleanup scheduler", t, func() {
+		setting.NewConfigContext(&setting.CommandLineArgs{
+			HomePath: "../../../",
+		})
+		setting.AlertingEnabled = true
+		setting.ExecuteAlerts = true
+		setting.ClusteringEnabled = true
+
+		handlers := &mockHandlers{}
+		bus.AddHandler("test", handlers.ClusteringCleanupCommand)
+		cm := NewClusterManager()
+
+		Convey("Test Cleanup scheduler", func() {
+			handlers.reset()
+			//Clean up scheduler Processing flow
+			mockCNM := &mockClusterNodeMgmt{
+				nodeId:          "testnode:3000",
+				lastHeartbeat:   1493233440,
+				activeNodeCount: 1,
+				activeNode:      &m.ActiveNode{PartId: 0, AlertStatus: m.CLN_ALERT_STATUS_READY},
+			}
+			cm.alertingState.status = m.CLN_ALERT_STATUS_READY
+			cm.clusterNodeMgmt = mockCNM
+			cm.cleanupScheduler()
+			So(mockCNM.callCountGetLastHeartbeat, ShouldEqual, 1)
+			So(cm.alertingState.status, ShouldEqual, m.CLN_ALERT_STATUS_SCHEDULING)
+			So(cm.alertingState.run_type, ShouldEqual, m.CLN_ALERT_RUN_TYPE_CLEANUP)
+			So(mockCNM.callCountCheckIn, ShouldEqual, 1)
+
+			// cleanup dispatch successful
+			cleanupTask := <-cm.dispatcherTaskQ
+			handlers.cleanupSchedulerErr = nil
+			cm.handleDispatcherTask(cleanupTask)
+			cleanupTaskStatus := <-cm.dispatcherTaskStatus
+			So(cleanupTaskStatus.taskType, ShouldEqual, DISPATCHER_TASK_TYPE_CLEANUP)
+			So(cleanupTaskStatus.success, ShouldBeTrue)
+			cm.handleDispatcherTaskStatus(cleanupTaskStatus)
+			//normal alerts should be scheduled after cleanup
+			So(cm.alertingState.status, ShouldEqual, m.CLN_ALERT_STATUS_SCHEDULING)
+			So(cm.alertingState.run_type, ShouldEqual, m.CLN_ALERT_RUN_TYPE_NORMAL)
+
+			//clean up not scheduled if node not in ready state
+			notInReadyState := cm.cleanupScheduler()
+			So(notInReadyState, ShouldBeTrue)
+		})
+
+		Convey("Test Cleanup not scheduled if other node is processing cleanup", func() {
+			handlers.reset()
+			mockCNM := &mockClusterNodeMgmt{
+				nodeId:        "testnode:3000",
+				lastHeartbeat: 1493233441,
+			}
+			mockCNM.checkInError = errors.New("Failed to checkin. Other node is running cleanup job")
+			cm.alertingState.status = m.CLN_ALERT_STATUS_READY
+			cm.clusterNodeMgmt = mockCNM
+			isOtherNodeDoingCleanup := cm.cleanupScheduler()
+			So(mockCNM.callCountGetLastHeartbeat, ShouldEqual, 1)
+			So(mockCNM.callCountCheckIn, ShouldEqual, 1)
+			So(cm.alertingState.status, ShouldEqual, m.CLN_ALERT_STATUS_READY)
+			So(cm.alertingState.run_type, ShouldEqual, m.CLN_ALERT_RUN_TYPE_NORMAL)
+			So(isOtherNodeDoingCleanup, ShouldBeTrue)
+		})
+	})
+}
 
 type mockHandlers struct {
 	pendingJobCount               int
 	alerts                        []*m.Alert
 	scheduleAlertsForPartitionErr error
 	scheduleMissingAlertsErr      error
+	cleanupSchedulerErr           error
 }
 
 func (mh *mockHandlers) reset() {
@@ -209,6 +303,10 @@ func (mh *mockHandlers) ScheduleMissingAlertsCommand(cmd *alerting.ScheduleMissi
 	return mh.scheduleMissingAlertsErr
 }
 
+func (mh *mockHandlers) ClusteringCleanupCommand(cmd *m.ClusteringCleanupCommand) error {
+	return mh.cleanupSchedulerErr
+}
+
 type mockClusterNodeMgmt struct {
 	retError                                    error
 	nodeId                                      string
@@ -225,6 +323,7 @@ type mockClusterNodeMgmt struct {
 	callCountGetLastHeartbeat                   int
 	callCountGetMissingAlerts                   int
 	callCountGetNodeProcessingMissingAlerts     int
+	checkInError                                error
 }
 
 func (cn *mockClusterNodeMgmt) GetNodeId() (string, error) {
@@ -233,7 +332,7 @@ func (cn *mockClusterNodeMgmt) GetNodeId() (string, error) {
 }
 func (cn *mockClusterNodeMgmt) CheckIn(alertingState *AlertingState, participantLimit int) error {
 	cn.callCountCheckIn++
-	return cn.retError
+	return cn.checkInError
 }
 func (cn *mockClusterNodeMgmt) GetNode(node *m.ActiveNode) (*m.ActiveNode, error) {
 	cn.callCountGetNode++
