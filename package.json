@@ -73,7 +73,7 @@
     "mousetrap": "^1.6.0",
     "remarkable": "^1.7.1",
     "sinon": "1.17.6",
-    "systemjs-builder": "^0.15.34",
+    "systemjs-builder": "^0.16.15",
     "tether": "^1.4.0",
     "tether-drop": "https://github.com/torkelo/drop",
     "tslint": "^5.1.0",
